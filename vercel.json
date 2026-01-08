@@ -1,0 +1,29 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "be-pinjam-rev-main/server.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "be-pinjam-rev-main/server.js"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production",
+    "DB_HOST": "centerbeam.proxy.rlwy.net",
+    "DB_PORT": "45208",
+    "DB_USER": "root",
+    "DB_PASSWORD": "NwnPcixRvthtJGznLoDSGBpdvqTKLLLM",
+    "DB_DATABASE": "railway",
+    "JWT_SECRET": "5b33d9932a798e311dd22af054058a3fa5d56a4af54ffff416fb40ccf3054b3d6dae9f3efd4f43182fd39bbe83e76fc3ade1540b406f37ee10bee6ceb14ca7c4",
+    "SESSION_SECRET": "50cf2efada0764ae69c89d0439f77eaa023785000419f0bbc78fc9aa719636d2353d5417b625d18c0a11ced8583cbddbf403f1dcfa1af149402778fe8b8692ed",
+    "CLOUDINARY_CLOUD_NAME": "dxew9tloz",
+    "CLOUDINARY_API_KEY": "483384826933723",
+    "CLOUDINARY_API_SECRET": "kT9lKep5kwN1opH0FKDViQ5feus",
+    "CORS_ORIGINS": "https://pinjamkuy2026.vercel.app"
+  }
+}
