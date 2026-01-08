@@ -1,0 +1,5 @@
+/* Hilangkan background putih pada video html5-qrcode dan parentnya */
+#qr-html5-video, #qr-html5-video > video, #qr-html5-video > canvas {
+  background: transparent !important;
+  box-shadow: none !important;
+}

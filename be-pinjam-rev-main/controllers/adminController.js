@@ -1,3 +1,135 @@
+exports.getStats = async (req, res) => {
+    const pool = getDBPool(req);
+    try {
+        const [[{ totalUsers }]] = await pool.query('SELECT COUNT(*) as totalUsers FROM users');
+        const [[{ totalBooks }]] = await pool.query('SELECT COUNT(*) as totalBooks FROM books');
+        const [[{ totalLoans }]] = await pool.query('SELECT COUNT(*) as totalLoans FROM loans');
+        const [[{ totalReturns }]] = await pool.query("SELECT COUNT(*) as totalReturns FROM loans WHERE status='Dikembalikan'");
+        const [[{ totalFines }]] = await pool.query('SELECT SUM(fineAmount) as totalFines FROM loans WHERE fineAmount > 0');
+        res.json({
+            totalUsers: totalUsers || 0,
+            totalBooks: totalBooks || 0,
+            totalLoans: totalLoans || 0,
+            totalReturns: totalReturns || 0,
+            totalFines: totalFines || 0
+        });
+    } catch (e) {
+        console.error('[ADMIN][STATS] Error:', e);
+        res.status(500).json({ message: 'Gagal mengambil statistik.' });
+    }
+};
+// Statistik/Laporan untuk dashboard admin
+exports.getStats = async (req, res) => {
+    const pool = getDBPool(req);
+    try {
+        const [[{ totalUsers }]] = await pool.query('SELECT COUNT(*) as totalUsers FROM users');
+        const [[{ totalBooks }]] = await pool.query('SELECT COUNT(*) as totalBooks FROM books');
+        const [[{ totalLoans }]] = await pool.query('SELECT COUNT(*) as totalLoans FROM loans');
+        const [[{ totalReturns }]] = await pool.query("SELECT COUNT(*) as totalReturns FROM loans WHERE status='Dikembalikan'");
+        const [[{ totalFines }]] = await pool.query('SELECT SUM(fineAmount) as totalFines FROM loans WHERE fineAmount > 0');
+        res.json({
+            totalUsers: totalUsers || 0,
+            totalBooks: totalBooks || 0,
+            totalLoans: totalLoans || 0,
+            totalReturns: totalReturns || 0,
+            totalFines: totalFines || 0
+        });
+    } catch (e) {
+        console.error('[ADMIN][STATS] Error:', e);
+        res.status(500).json({ message: 'Gagal mengambil statistik.' });
+    }
+};
+
+// 1. Top 5 Most Borrowed Books
+exports.getTopBooks = async (req, res) => {
+    const pool = getDBPool(req);
+    try {
+        const [rows] = await pool.query(`
+            SELECT b.id, b.title, b.author, b.category, COUNT(l.id) as borrowCount
+            FROM books b
+            LEFT JOIN loans l ON l.book_id = b.id
+            GROUP BY b.id, b.title, b.author, b.category
+            ORDER BY borrowCount DESC
+            LIMIT 5
+        `);
+        res.json(rows);
+    } catch (e) {
+        console.error('[ADMIN][TOP_BOOKS] Error:', e);
+        res.status(500).json({ message: 'Gagal mengambil data buku teratas.' });
+    }
+};
+
+// 2. Monthly Activity (Loans & Returns per Month)
+exports.getMonthlyActivity = async (req, res) => {
+    const pool = getDBPool(req);
+    try {
+        const [loans] = await pool.query(`
+            SELECT DATE_FORMAT(createdAt, '%Y-%m') as month, COUNT(*) as loanCount
+            FROM loans
+            GROUP BY month
+            ORDER BY month DESC
+            LIMIT 12
+        `);
+        const [returns] = await pool.query(`
+            SELECT DATE_FORMAT(updatedAt, '%Y-%m') as month, COUNT(*) as returnCount
+            FROM loans
+            WHERE status = 'Dikembalikan'
+            GROUP BY month
+            ORDER BY month DESC
+            LIMIT 12
+        `);
+        res.json({ loans, returns });
+    } catch (e) {
+        console.error('[ADMIN][MONTHLY_ACTIVITY] Error:', e);
+        res.status(500).json({ message: 'Gagal mengambil data aktivitas bulanan.' });
+    }
+};
+
+// 3. Active Loans Count
+exports.getActiveLoans = async (req, res) => {
+    const pool = getDBPool(req);
+    try {
+        const [[{ activeLoans }]] = await pool.query(`
+            SELECT COUNT(*) as activeLoans FROM loans WHERE status IN ('Sedang Dipinjam', 'Terlambat', 'Siap Dikembalikan')
+        `);
+        res.json({ activeLoans });
+    } catch (e) {
+        console.error('[ADMIN][ACTIVE_LOANS] Error:', e);
+        res.status(500).json({ message: 'Gagal mengambil jumlah pinjaman aktif.' });
+    }
+};
+
+// 4. Outstanding Fines Summary
+exports.getOutstandingFines = async (req, res) => {
+    const pool = getDBPool(req);
+    try {
+        const [[{ totalOutstandingFines }]] = await pool.query(`
+            SELECT SUM(fineAmount) as totalOutstandingFines FROM loans WHERE fineAmount > 0 AND (finePaid IS NULL OR finePaid = 0)
+        `);
+        res.json({ totalOutstandingFines: totalOutstandingFines || 0 });
+    } catch (e) {
+        console.error('[ADMIN][OUTSTANDING_FINES] Error:', e);
+        res.status(500).json({ message: 'Gagal mengambil data denda outstanding.' });
+    }
+};
+
+// 5. Notification Statistics (last 30 days)
+exports.getNotificationStats = async (req, res) => {
+    const pool = getDBPool(req);
+    try {
+        const [rows] = await pool.query(`
+            SELECT DATE(createdAt) as date, COUNT(*) as notifCount
+            FROM user_notifications
+            WHERE createdAt >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+            GROUP BY date
+            ORDER BY date DESC
+        `);
+        res.json(rows);
+    } catch (e) {
+        console.error('[ADMIN][NOTIF_STATS] Error:', e);
+        res.status(500).json({ message: 'Gagal mengambil statistik notifikasi.' });
+    }
+};
 // File: controllers/adminController.js (KODE BERSIH, HANYA KELOLA PENGGUNA & DENDA)
 
 const getDBPool = (req) => req.app.get('dbPool');
@@ -22,11 +154,11 @@ const formatRupiah = (amount) => {
 exports.getAllUsers = async (req, res) => {
     const pool = getDBPool(req);
     try {
-        // Query untuk menghitung jumlah pinjaman aktif (Sedang Dipinjam, Menunggu Persetujuan, Terlambat, Siap Dikembalikan)
-        const query = `
+        // Query user
+        const userQuery = `
             SELECT 
                 u.id, u.username, u.npm, u.role, u.fakultas, u.prodi, u.angkatan,
-                u.denda, /* historical / total accumulated */
+                u.denda,
                 COALESCE((
                     SELECT SUM(l.fineAmount - IFNULL(l.finePaid,0))
                     FROM loans l 
@@ -38,14 +170,36 @@ exports.getAllUsers = async (req, res) => {
             FROM users u
             ORDER BY u.id DESC
         `;
-        const [rows] = await pool.query(query);
-        const usersWithFormattedDenda = rows.map(user => ({
+        const [users] = await pool.query(userQuery);
+
+        // Query all active loans for all users
+        const loanQuery = `
+            SELECT l.id, l.user_id, l.book_id, l.expectedReturnDate, b.title as bookTitle
+            FROM loans l
+            JOIN books b ON l.book_id = b.id
+            WHERE l.status IN ('Sedang Dipinjam', 'Menunggu Persetujuan', 'Terlambat', 'Siap Dikembalikan')
+        `;
+        const [loans] = await pool.query(loanQuery);
+
+        // Group loans by user_id
+        const loansByUser = {};
+        for (const loan of loans) {
+            if (!loansByUser[loan.user_id]) loansByUser[loan.user_id] = [];
+            loansByUser[loan.user_id].push({
+                id: loan.id,
+                bookTitle: loan.bookTitle,
+                expectedReturnDate: loan.expectedReturnDate
+            });
+        }
+
+        const usersWithLoans = users.map(user => ({
             ...user,
             dendaRupiah: formatRupiah(user.denda),
-            activeUnpaidFineRupiah: formatRupiah(user.active_unpaid_fine)
+            activeUnpaidFineRupiah: formatRupiah(user.active_unpaid_fine),
+            activeLoans: loansByUser[user.id] || []
         }));
 
-        res.json(usersWithFormattedDenda);
+        res.json(usersWithLoans);
     } catch (error) {
         console.error('❌ Error fetching all users:', error);
         res.status(500).json({ message: 'Gagal mengambil data pengguna.' });
@@ -218,5 +372,129 @@ exports.resetPenalty = async (req, res) => {
     } catch (error) {
         console.error('❌ Error resetting penalty:', error);
         res.status(500).json({ message: 'Gagal mereset denda.' });
+    }
+};
+
+// 7. Get Pending Fine Payments (GET /api/admin/fine-payments)
+exports.getPendingFinePayments = async (req, res) => {
+    const pool = getDBPool(req);
+    try {
+        const [rows] = await pool.query(`
+            SELECT * FROM fine_payments 
+            WHERE status = 'pending' 
+            ORDER BY created_at DESC
+        `);
+        res.json(rows);
+    } catch (e) {
+        console.error('[ADMIN][FINE_PAYMENTS] Error:', e);
+        res.status(500).json({ message: 'Gagal mengambil data pembayaran denda.' });
+    }
+};
+
+// 8. Verify Fine Payment (POST /api/admin/fine-payments/:id/verify)
+exports.verifyFinePayment = async (req, res) => {
+    const pool = getDBPool(req);
+    const { id } = req.params;
+    const { action, notes, proofUrl } = req.body; // action: 'approve' | 'reject', proofUrl for cash payment
+    const adminId = req.user.id;
+    
+    if (!action || !['approve', 'reject'].includes(action)) {
+        return res.status(400).json({ message: 'Action harus approve atau reject.' });
+    }
+    
+    let connection;
+    try {
+        connection = await pool.getConnection();
+        await connection.beginTransaction();
+        
+        // Get payment detail
+        const [payments] = await connection.query('SELECT * FROM fine_payments WHERE id = ? LIMIT 1', [id]);
+        if (!payments.length) {
+            await connection.rollback();
+            return res.status(404).json({ message: 'Pembayaran tidak ditemukan.' });
+        }
+        
+        const payment = payments[0];
+        
+        if (action === 'approve') {
+            // Update payment status
+            let updateProof = proofUrl || payment.proof_url;
+            
+            await connection.query(
+                'UPDATE fine_payments SET status = ?, verified_by = ?, verified_at = NOW(), admin_notes = ?, proof_url = ? WHERE id = ?',
+                ['approved', adminId, notes || null, updateProof, id]
+            );
+            
+            // Update loans - mark fines as paid
+            const loanIds = JSON.parse(payment.loan_ids || '[]');
+            if (loanIds.length > 0) {
+                const placeholders = loanIds.map(() => '?').join(',');
+                await connection.query(
+                    `UPDATE loans SET finePaid = 1 WHERE id IN (${placeholders})`,
+                    loanIds
+                );
+            }
+            
+            // Send notification to user
+            const message = `Pembayaran denda sebesar ${formatRupiah(payment.amount_total)} telah diverifikasi dan disetujui. Denda Anda telah dilunasi.`;
+            
+            try {
+                const io = req.app.get('io');
+                if (io) {
+                    io.to(`user_${payment.user_id}`).emit('notification', {
+                        message,
+                        type: 'success',
+                        paymentId: id
+                    });
+                }
+            } catch (err) {
+                console.warn('[SOCKET.IO] Gagal kirim notifikasi:', err.message);
+            }
+            
+            // Save to user_notifications
+            await connection.query(
+                `INSERT INTO user_notifications (user_id, kind, type, title, message, created_at) 
+                 VALUES (?, 'user_notif', 'success', 'Pembayaran Denda Disetujui', ?, NOW())`,
+                [payment.user_id, message]
+            );
+            
+        } else {
+            // Reject payment
+            await connection.query(
+                'UPDATE fine_payments SET status = ?, verified_by = ?, verified_at = NOW(), admin_notes = ? WHERE id = ?',
+                ['rejected', adminId, notes || 'Pembayaran ditolak', id]
+            );
+            
+            const message = `Pembayaran denda sebesar ${formatRupiah(payment.amount_total)} ditolak. ${notes ? `Alasan: ${notes}` : ''} Silakan hubungi admin untuk informasi lebih lanjut.`;
+            
+            try {
+                const io = req.app.get('io');
+                if (io) {
+                    io.to(`user_${payment.user_id}`).emit('notification', {
+                        message,
+                        type: 'error',
+                        paymentId: id
+                    });
+                }
+            } catch (err) {
+                console.warn('[SOCKET.IO] Gagal kirim notifikasi:', err.message);
+            }
+            
+            // Save to user_notifications
+            await connection.query(
+                `INSERT INTO user_notifications (user_id, kind, type, title, message, created_at) 
+                 VALUES (?, 'user_notif', 'error', 'Pembayaran Denda Ditolak', ?, NOW())`,
+                [payment.user_id, message]
+            );
+        }
+        
+        await connection.commit();
+        res.json({ success: true, message: `Pembayaran berhasil ${action === 'approve' ? 'disetujui' : 'ditolak'}.` });
+    } catch (e) {
+        if (connection) await connection.rollback();
+        console.error('[ADMIN][VERIFY_FINE_PAYMENT] Error:', e);
+        res.status(500).json({ message: 'Gagal memverifikasi pembayaran.' });
+    } finally {
+        if (connection) connection.release();
     }
 };

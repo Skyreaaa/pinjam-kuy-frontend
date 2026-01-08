@@ -1,12 +1,28 @@
 // File: server.js (FULL KODE SIAP PAKAI)
-
+require('dotenv').config();
+console.log('[DEBUG] JWT_SECRET:', process.env.JWT_SECRET);
 const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 const mysql = require('mysql2/promise');
 const dotenv = require('dotenv');
 const fs = require('fs');
 const cors = require('cors');
 const path = require('path'); // WAJIB untuk path static files
+const sessionMiddleware = require('./middleware/session');
+
 const { ensureSeedData } = require('./utils/seeder');
+// ...existing code...
+const cron = require('node-cron');
+const { sendDueReminders } = require('./utils/cronDueReminder');
+// === CRON: Reminder Jatuh Tempo ===
+// Setiap hari jam 07:00 pagi, kirim pengingat jatuh tempo ke user
+cron.schedule('0 7 * * *', () => {
+    console.log('[CRON] Menjalankan due reminder (07:00)...');
+    sendDueReminders(app);
+}, {
+    timezone: 'Asia/Jakarta'
+});
 
 // --- 1. Import Routes Tambahan ---
 const adminRoutes = require('./routes/adminRoutes'); // WAJIB: Pastikan import ini ada
@@ -14,6 +30,28 @@ const authRoutes = require('./routes/auth');
 const loanRoutes = require('./routes/loanRoutes'); 
 const bookRoutes = require('./routes/bookRoutes'); 
 const profileRoutes = require('./routes/profile'); 
+// Register user notification API
+const userNotificationRoutes = require('./api/user_notifications');
+// Push notification routes
+const pushRoutes = require('./routes/pushRoutes');
+
+const app = express();
+// --- Handler untuk semua preflight OPTIONS agar CORS preflight selalu direspon ---
+app.options('*', cors({
+    origin: 'http://localhost:3000',
+    credentials: true
+}));
+// --- CORS PALING ATAS ---
+app.use(cors({
+    origin: 'http://localhost:3000',
+    credentials: true
+}));
+// --- 2. Middleware ---
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(sessionMiddleware);
+// Register user notification API
+app.use('/api/user', userNotificationRoutes);
 
 // --- Load .env explicitly (resolve path) ---
 const envPathCandidates = [
@@ -34,6 +72,12 @@ if (!loadedEnvPath) {
     console.warn('[ENV] Tidak menemukan file .env di kandidat path:', envPathCandidates);
 } else {
     console.log('[ENV] Loaded from:', loadedEnvPath);
+}
+
+// === WAJIB: JWT_SECRET harus ada ===
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.trim() === '') {
+    console.error('ERROR: JWT_SECRET wajib di-set di .env! Server tidak akan dijalankan.');
+    process.exit(1);
 }
 
 // --- Advanced Fallback: handle possible UTF-16 (null byte) or weird encoding / BOM characters ---
@@ -128,16 +172,51 @@ if (!process.env.DB_HOST || !process.env.DB_USER || !process.env.DB_DATABASE) {
     process.exit(1);
 }
 
-const app = express();
+const server = http.createServer(app);
+// Setup socket.io
+const io = new Server(server, {
+    cors: {
+        origin: '*',
+        methods: ['GET', 'POST']
+    }
+});
+
+// Socket.io event handler
+io.on('connection', (socket) => {
+    console.log('[SOCKET.IO] User connected:', socket.id);
+    // Contoh event join room user/admin
+    socket.on('join', (data) => {
+        // data: { userId, role }
+        if (data && data.userId) {
+            socket.join(`user_${data.userId}`);
+        }
+        if (data && data.role === 'admin') {
+            socket.join('admins');
+        }
+    });
+    socket.on('disconnect', () => {
+        console.log('[SOCKET.IO] User disconnected:', socket.id);
+    });
+});
+
+// Helper untuk emit notifikasi ke user tertentu
+app.set('io', io);
+app.set('notifyUser', (userId, notif) => {
+    io.to(`user_${userId}`).emit('notification', notif);
+});
+app.set('notifyAdmins', (notif) => {
+    io.to('admins').emit('notification', notif);
+});
 // Catatan PORT:
 // Jika PORT ditentukan di environment (process.env.PORT), kita akan pakai apa adanya.
 // Jika tidak, kita mulai dari 5000 dan jika bentrok (EADDRINUSE) kita coba increment (5001, 5002, ...)
 const INITIAL_PORT = parseInt(process.env.PORT, 10) || 5000;
 
+
 // --- 2. Middleware ---
-app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(sessionMiddleware);
 
 let pool;
 
@@ -491,6 +570,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/loans', loanRoutes); 
 app.use('/api/books', bookRoutes); 
 app.use('/api/profile', profileRoutes);
+app.use('/api/push', pushRoutes); // Push notifications
 
 // Endpoint health sederhana untuk cek server hidup
 app.get('/api/health', (req, res) => {
@@ -552,15 +632,16 @@ app.get('/api/debug/loan-columns', async (req, res) => {
 });
 
 // --- 5. Jalankan Server dengan Fallback Port Dinamis ---
+
 function startServer(port, attempt = 1, maxAttempts = 8) {
-    const server = app.listen(port, () => {
+    const s = server.listen(port, () => {
         console.log(`🚀 Server berjalan di http://localhost:${port}`);
         if (!process.env.PORT && port !== INITIAL_PORT) {
             console.log(`ℹ️  Menggunakan port alternatif karena port ${INITIAL_PORT} sedang dipakai.`);
         }
     });
 
-    server.on('error', (err) => {
+    s.on('error', (err) => {
         if (err.code === 'EADDRINUSE') {
             if (process.env.PORT) {
                 console.error(`❌ Port ${port} (dari ENV) sudah dipakai. Silakan kosongkan port atau ubah variabel PORT.`);

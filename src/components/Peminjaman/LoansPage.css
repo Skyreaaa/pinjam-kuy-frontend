@@ -1,0 +1,385 @@
+/* Konsistensi tombol modal upload bukti */
+.proof-action-btn-v5 {
+    flex: 1;
+    min-width: 160px;
+    max-width: 240px;
+    padding: 12px 0;
+    border: none;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 1.08rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 2px 8px #0001;
+    transition: background 0.18s, box-shadow 0.18s;
+}
+.proof-action-btn-v5:disabled {
+    background: #b2dff1;
+    cursor: not-allowed;
+}
+/* Header and Tabs Modern Responsive */
+.loans-header-v5 {
+    background: #1a3263;
+    border-radius: 20px;
+    margin: 20px auto 18px;
+    max-width: 400px;
+    padding: 12px 0 12px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+.loans-header-v5 img {
+    width: 36px;
+    height: 36px;
+}
+.loans-header-v5 h2 {
+    color: #fff;
+    font-weight: 700;
+    font-size: 1.25rem;
+    margin: 0;
+    letter-spacing: 0.01em;
+}
+.loans-tabs-v5 {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto 8px auto;
+    padding: 0 8px;
+}
+.tab-active-v5, .tab-inactive-v5 {
+    flex: 1 1 0;
+    text-align: center;
+}
+@media (max-width: 600px) {
+    .loans-header-v5 {
+        max-width: 60vw;
+        padding: 10px 0 10px 0;
+        gap: 8px;
+    }
+    .loans-header-v5 img {
+        width: 28px;
+        height: 28px;
+    }
+    .loans-header-v5 h2 {
+        font-size: 1.05rem;
+    }
+    .loans-tabs-v5 {
+        padding: 0 2px;
+    }
+}
+.loan-action-btn {
+    background: linear-gradient(90deg, #1a3263 60%, #3e5ba9 100%);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 0;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 1px 4px 0 rgba(30,40,90,0.08);
+    transition: background 0.18s, box-shadow 0.18s, transform 0.12s;
+    margin-bottom: 0;
+    letter-spacing: 0.01em;
+}
+.loan-action-btn:hover {
+    background: linear-gradient(90deg, #3e5ba9 60%, #1a3263 100%);
+    box-shadow: 0 2px 8px 0 rgba(30,40,90,0.13);
+    transform: translateY(-2px) scale(1.03);
+}
+.loan-card-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 14px;
+}
+/* Modern Loan Card Styles */
+.loan-card-v5.modern-redesign {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 4px 24px 0 rgba(30,40,90,0.10), 0 1.5px 4px 0 rgba(30,40,90,0.08);
+    padding: 28px 28px 20px 28px;
+    margin: 32px 0 0 0; /* Rata kiri, tidak di tengah */
+    max-width: 370px;
+    min-width: 260px;
+    border-left: 6px solid #1a3263;
+    transition: box-shadow 0.2s;
+    position: relative;
+}
+.loan-card-v5.modern-redesign:hover {
+    box-shadow: 0 8px 32px 0 rgba(30,40,90,0.16), 0 2px 8px 0 rgba(30,40,90,0.10);
+}
+.loan-card-header {
+    margin-bottom: 8px;
+}
+.loan-title {
+    font-size: 1.18rem;
+    font-weight: 600;
+    color: #232a3d;
+    margin-bottom: 2px;
+}
+.loan-status {
+    display: inline-block;
+    font-size: 1rem;
+    font-weight: 500;
+    color: #e53935;
+    background: #ffeaea;
+    border-radius: 8px;
+    padding: 2px 12px;
+    margin-bottom: 8px;
+}
+.loan-kode {
+    font-size: 1.05rem;
+    margin: 8px 0 4px 0;
+    color: #444;
+}
+.loan-kode b {
+    font-size: 1.08rem;
+    letter-spacing: 1px;
+    color: #1a3263;
+}
+.loan-info-row {
+    display: flex;
+    align-items: center;
+    font-size: 0.98rem;
+    color: #333;
+    margin-bottom: 2px;
+    gap: 6px;
+}
+.loan-info-row svg {
+    color: #1a3263;
+    font-size: 1.08em;
+}
+.loan-card-body {
+    margin-bottom: 10px;
+}
+.loan-card-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+}
+.loan-action-btn {
+    background: linear-gradient(90deg, #1a3263 60%, #3e5ba9 100%);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 0;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 1px 4px 0 rgba(30,40,90,0.08);
+    transition: background 0.18s, box-shadow 0.18s;
+}
+.loan-action-btn:hover {
+    background: linear-gradient(90deg, #3e5ba9 60%, #1a3263 100%);
+    box-shadow: 0 2px 8px 0 rgba(30,40,90,0.13);
+}
+.loan-card-v5 .loan-kode {
+    margin-bottom: 6px;
+}
+.loan-card-v5 .loan-status {
+    margin-bottom: 10px;
+}
+.loan-card-v5 .loan-info-row:last-child {
+    margin-bottom: 0;
+}
+.loan-card-v5 .loan-kode b {
+    font-weight: 700;
+}
+.loan-card-v5 .loan-info-row span[style*="underline"] {
+    color: #1a3263;
+    font-weight: 700;
+}
+.loan-card-v5 .loan-info-row svg {
+    margin-right: 4px;
+}
+.loan-card-v5 .loan-status {
+    margin-left: 0;
+}
+.modern-redesign.loan-card-v5 {
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 2px 8px #0001;
+    padding: 18px 16px;
+    margin-bottom: 18px;
+    max-width: 340px;
+    width: 100%;
+}
+.loan-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.loan-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #234b8b;
+}
+.loan-status {
+    padding: 4px 12px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    background: #e3f6fd;
+    color: #1a3263;
+}
+.loan-status.selesai {
+    background: #c8e6c9;
+    color: #388e3c;
+}
+.loan-status.terlambat {
+    background: #ffe0b2;
+    color: #e65100;
+}
+.loan-status.ditolak {
+    background: #ffcdd2;
+    color: #c62828;
+}
+.loan-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+.loan-kode {
+    font-size: 0.98rem;
+    color: #1976d2;
+    font-weight: 600;
+    margin-bottom: 2px;
+}
+.loan-info-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.98rem;
+    color: #444;
+}
+.qr-validity {
+    margin-top: 6px;
+    font-size: 13px;
+    color: #e53935;
+    font-weight: 600;
+}
+.qr-expired {
+    margin-top: 6px;
+    font-size: 13px;
+    color: #b8860b;
+    font-weight: 600;
+}
+.loan-card-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: auto;
+}
+.loan-action-btn {
+    width: 100%;
+    border-radius: 8px;
+    padding: 10px 0;
+    font-weight: 700;
+    background: #ffb300;
+    color: #fff;
+    border: none;
+    font-size: 1rem;
+    transition: background 0.18s;
+    cursor: pointer;
+}
+.loan-action-btn:hover {
+    background: #e09f30;
+}
+/* Responsive Mobile & Desktop */
+@media (min-width: 769px) {
+    /* Desktop: cards berdampingan dengan grid */
+    .loans-page-container-v5 {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+        gap: 20px;
+    }
+    .loan-card-v5.modern-redesign {
+        max-width: 100%;
+        width: 100%;
+    }
+    .loan-card-actions {
+        flex-direction: row !important;
+        flex-wrap: wrap;
+    }
+    .loan-action-btn {
+        flex: 1 1 45%;
+        min-width: 150px;
+    }
+}
+
+@media (max-width: 768px) {
+    /* Mobile: cards vertikal stack */
+    .loans-page-container-v5 {
+        padding: 16px !important;
+    }
+    .modern-redesign.loan-card-v5 {
+        max-width: 100%;
+        padding: 20px 16px;
+        margin: 16px 0 0 0;
+    }
+    .loan-title {
+        font-size: 1.05rem;
+    }
+    .loan-kode {
+        font-size: 0.95rem;
+    }
+    .loan-info-row {
+        font-size: 0.9rem;
+    }
+    .loan-card-actions {
+        flex-direction: column !important;
+        gap: 10px;
+    }
+    .loan-action-btn {
+        width: 100%;
+        padding: 14px;
+        font-size: 0.95rem;
+    }
+    .loans-header-v5 {
+        margin: 16px 16px 12px;
+        max-width: 90%;
+    }
+    .loans-header-v5 h2 {
+        font-size: 1.1rem;
+    }
+}
+
+@media (max-width: 600px) {
+    .modern-redesign.loan-card-v5 {
+        max-width: 98vw;
+        padding: 16px 12px;
+    }
+    .loan-title {
+        font-size: 1rem;
+    }
+}
+.back-button-v5 {
+    background-color: var(--color-back-button, #ffb300);
+    border: none;
+    cursor: pointer;
+    font-size: 1.5rem;
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 3px 6px rgba(248, 183, 57, 0.4);
+    transition: background-color 0.2s;
+}
+.back-button-v5:hover {
+    background-color: #e09f30;
+}

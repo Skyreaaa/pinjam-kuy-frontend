@@ -18,7 +18,7 @@ const SplashScreen: React.FC<{ onFinish?: () => void }> = ({ onFinish }) => {
   return (
     <div className={`splash-container${fade ? ' fade-out' : ''}`}>
       {/* PERBAIKAN: Mengganti require dengan path statis */}
-      <img src="/Logo.png" alt="Splash Pinjam Kuy" className="splash-img" />
+      <img src={process.env.PUBLIC_URL + '/Logo.png'} alt="Splash Pinjam Kuy" className="splash-img" />
     </div>
   );
 };

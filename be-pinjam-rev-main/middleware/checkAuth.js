@@ -1,9 +1,11 @@
+require('dotenv').config();
 // File: middleware/checkAuth.js
 const jwt = require('jsonwebtoken');
 const dotenv = require('dotenv');
 dotenv.config();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'ganti-dengan-secret-key-yang-kuat'; 
+if (!process.env.JWT_SECRET) { throw new Error('JWT_SECRET wajib di-set di .env!'); }
+const JWT_SECRET = process.env.JWT_SECRET;
 
 module.exports = (req, res, next) => {
     try {

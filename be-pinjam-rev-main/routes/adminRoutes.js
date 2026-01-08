@@ -1,30 +1,89 @@
-// File: routes/adminRoutes.js (FULL CODE FIXED)
+require('dotenv').config();
 
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/adminController'); 
 const loanController = require('../controllers/loanController'); 
 const jwt = require('jsonwebtoken'); 
+router.get('/stats', adminController.getStats);
+// Statistik/Laporan untuk dashboard admin
+router.get('/stats', adminController.getStats);
+router.get('/stats/top-books', adminController.getTopBooks);
+router.get('/stats/monthly-activity', adminController.getMonthlyActivity);
+router.get('/stats/active-loans', adminController.getActiveLoans);
+router.get('/stats/outstanding-fines', adminController.getOutstandingFines);
+router.get('/stats/notification-stats', adminController.getNotificationStats);
+
+// === BROADCAST NOTIFIKASI KE SEMUA USER ===
+const UserNotification = require('../models/user_notifications');
+const pushController = require('../controllers/pushController');
+
+router.post('/broadcast', async (req, res) => {
+    const { message, type = 'info' } = req.body || {};
+    if (!message || typeof message !== 'string' || !message.trim()) {
+        return res.status(400).json({ success: false, message: 'Pesan broadcast tidak boleh kosong.' });
+    }
+    try {
+        const io = req.app.get('io');
+        // Simpan ke tabel user_notifications sebagai broadcast
+        await UserNotification.create({ user_id: null, type, message, is_broadcast: 1 });
+        
+        // Kirim Socket.IO notification
+        if (io) {
+            io.emit('notification', {
+                message,
+                type,
+                is_broadcast: true,
+            });
+        }
+        
+        // Kirim Push Notification ke semua user
+        try {
+            await pushController.sendPushToAllUsers({
+                title: 'Pemberitahuan',
+                message: message,
+                tag: 'broadcast',
+                data: { type: 'broadcast', is_broadcast: true },
+                requireInteraction: type === 'warning' || type === 'error'
+            });
+            console.log('✅ Push notification broadcast berhasil dikirim');
+        } catch (pushErr) {
+            console.warn('[PUSH][BROADCAST] Gagal kirim push notification:', pushErr.message);
+        }
+        
+        return res.json({ success: true });
+    } catch (err) {
+        console.error('[ADMIN][BROADCAST] Error:', err);
+        return res.status(500).json({ success: false, message: 'Gagal mengirim broadcast.' });
+    }
+});
+// File: routes/adminRoutes.js (FULL CODE FIXED)
 
 // --- Middleware Otentikasi Admin ---
 const authenticateAdmin = (req, res, next) => {
+    console.log('🔐 [authenticateAdmin] Checking route:', req.method, req.path);
     const authHeader = req.headers.authorization;
     if (!authHeader) {
+        console.log('❌ [authenticateAdmin] No Authorization header');
         return res.status(401).json({ message: 'Akses Ditolak. Token tidak disediakan.' });
     }
 
     const token = authHeader.split(' ')[1];
-    const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_default'; 
+    if (!process.env.JWT_SECRET) { throw new Error('JWT_SECRET wajib di-set di .env!'); }
+    const JWT_SECRET = process.env.JWT_SECRET;
 
     jwt.verify(token, JWT_SECRET, (err, decoded) => {
         if (err) {
+            console.log('❌ [authenticateAdmin] Invalid token:', err.message);
             return res.status(401).json({ message: 'Token tidak valid atau kadaluarsa.' });
         }
         
         if (decoded.role !== 'admin') {
+            console.log('❌ [authenticateAdmin] Not admin role:', decoded.role);
             return res.status(403).json({ message: 'Akses Ditolak. Anda bukan Admin.' });
         }
         
+        console.log('✅ [authenticateAdmin] Admin authenticated:', decoded.username);
         req.user = decoded; 
         next();
     });
@@ -109,6 +168,27 @@ router.post('/fines/verify', async (req,res)=>{
             await conn.query('UPDATE fine_payment_notifications SET status="rejected" WHERE id=?',[notificationId]);
         }
         await conn.commit();
+
+        // === SOCKET.IO NOTIFIKASI USER ===
+        try {
+            const io = req.app.get('io');
+            if (io && noti.user_id) {
+                if (action === 'approve') {
+                    io.to(`user_${noti.user_id}`).emit('notification', {
+                        message: `Pembayaran denda sebesar Rp${noti.amount_total} telah diverifikasi dan dinyatakan lunas. Terima kasih!`,
+                        type: 'success',
+                    });
+                } else if (action === 'reject') {
+                    io.to(`user_${noti.user_id}`).emit('notification', {
+                        message: `Pembayaran denda ditolak. Silakan upload ulang bukti pembayaran yang valid.`,
+                        type: 'error',
+                    });
+                }
+            }
+        } catch (err) {
+            console.warn('[SOCKET.IO][NOTIF] Gagal kirim notif pembayaran denda:', err.message);
+        }
+
         res.json({ success:true, updated: notificationId, action });
     } catch (e){
         if(conn) await conn.rollback();
@@ -124,9 +204,17 @@ router.post('/fines/verify', async (req,res)=>{
 // Daftar Pinjaman Tertunda
 router.get('/loans/pending', loanController.getPendingLoans); 
 // Daftar Pengembalian yang Sedang Dipinjam/Terlambat/Siap Dikembalikan
-router.get('/returns/review', loanController.getReturnsForReview);
+router.get('/returns/review', (req, res, next) => {
+    console.log('🎯 [Route] /returns/review hit');
+    next();
+}, loanController.getReturnsForReview);
 // Riwayat Pengembalian & Persetujuan (Dikembalikan, Ditolak)
 router.get('/history', loanController.getHistory);
+
+// Get active loans (Diambil, Sedang Dipinjam, Terlambat)
+router.get('/loans/active', loanController.getActiveLoans);
+// Send reminder to user
+router.post('/loans/send-reminder', loanController.sendLoanReminder);
 
 // Aksi Pinjaman: POST /api/admin/loans/approve (body: {loanId, expectedReturnDate})
 router.post('/loans/approve', loanController.approveLoan);
@@ -142,5 +230,10 @@ router.post('/loans/reject', loanController.rejectLoan);
 router.post('/returns/process', loanController.processReturn);
 // Aksi Pengembalian: POST /api/admin/returns/reject (body: {loanId})
 router.post('/returns/reject', loanController.rejectReturnProof);
+
+// === FINE PAYMENTS ===
+router.get('/fine-payments', adminController.getPendingFinePayments);
+const { uploadFineProof } = require('../middleware/upload');
+router.post('/fine-payments/:id/verify', uploadFineProof.single('proof'), adminController.verifyFinePayment);
 
 module.exports = router;

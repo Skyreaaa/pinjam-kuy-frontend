@@ -3,7 +3,7 @@ import '../Nav/Nav.css';
 
 interface NavProps {
   currentView: string;
-  onNavigate: (view: 'home' | 'history') => void;
+  onNavigate: (view: 'home' | 'history' | 'fines') => void;
 }
 
 const Nav: React.FC<NavProps> = ({ currentView, onNavigate }) => {
@@ -14,6 +14,9 @@ const Nav: React.FC<NavProps> = ({ currentView, onNavigate }) => {
       </button>
       <button className={`nav-button ${currentView === 'history' ? 'active' : ''}`} onClick={() => onNavigate('history')}>
         Riwayat Peminjaman
+      </button>
+      <button className={`nav-button ${currentView === 'fines' ? 'active' : ''}`} onClick={() => onNavigate('fines')}>
+        Pembayaran Denda
       </button>
     </nav>
   );

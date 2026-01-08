@@ -7,6 +7,7 @@ import './Home.css';
 import characterImage from '../../assets/menyapa.png';
 import { FaBars, FaTimes } from 'react-icons/fa';
 import NotificationToast from '../common/NotificationToast';
+import PushNotificationPrompt from '../common/PushNotificationPrompt';
 import { useNavigate } from 'react-router-dom';
 
 interface HomeProps {
@@ -34,6 +35,7 @@ const formatRupiah = (amount: number) => {
     }).format(num);
 };
 
+
 const Home: React.FC<HomeProps> = ({
   userData,
   profilePhoto,
@@ -49,13 +51,20 @@ const Home: React.FC<HomeProps> = ({
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeLoansCount, setActiveLoansCount] = useState<number>(userData?.active_loans_count || 0);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
 
-  // Hooks untuk navigasi login jika userData null
+  // Hooks untuk navigasi login jika userData null, tapi tunggu inisialisasi selesai
   useEffect(() => {
-    if (!userData) {
+    // Tunggu 200ms untuk memastikan userData sudah diinisialisasi dari localStorage
+    const timer = setTimeout(() => setIsInitializing(false), 200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!isInitializing && !userData) {
       navigate('/login');
     }
-  }, [userData, navigate]);
+  }, [userData, navigate, isInitializing]);
 
   // Update URL untuk home page
   useEffect(() => {
@@ -92,13 +101,13 @@ const Home: React.FC<HomeProps> = ({
     let cancelled=false;
     (async()=>{
       try {
-        const resp:any = await fetch(`${API_BASE_URL}/profile/active-loans-count`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }}).then(r=>r.json());
+        const resp:any = await fetch(`${API_BASE_URL}/profile/active-loans-count`, { headers: { Authorization: `Bearer ${sessionStorage.getItem('token')}` }}).then(r=>r.json());
         if(!cancelled && resp?.success){ setActiveLoansCount(resp.activeLoans); }
       } catch(e){ /* ignore */ }
     })();
     const interval = setInterval(async()=>{
       try {
-        const resp:any = await fetch(`${API_BASE_URL}/profile/active-loans-count`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }}).then(r=>r.json());
+        const resp:any = await fetch(`${API_BASE_URL}/profile/active-loans-count`, { headers: { Authorization: `Bearer ${sessionStorage.getItem('token')}` }}).then(r=>r.json());
         if(resp?.success) setActiveLoansCount(resp.activeLoans);
       } catch {}
     }, 20000); // refresh setiap 20s
@@ -141,6 +150,9 @@ const Home: React.FC<HomeProps> = ({
   }, []);
 
   // Setelah semua hooks, baru pengecekan userData
+  if (isInitializing) {
+    return <div className="home-container"><p>Memuat data pengguna...</p></div>;
+  }
   if (!userData) {
     return <div className="home-container"><p>Silakan login untuk melanjutkan.</p></div>;
   }
@@ -172,6 +184,10 @@ const Home: React.FC<HomeProps> = ({
       {menuOpen && (
         <nav className="dropdown-menu open">
           <button className="dropdown-item" onClick={() => {
+            navigate('/');
+            setMenuOpen(false);
+          }}>Home</button>
+          <button className="dropdown-item" onClick={() => {
             onMenuClick('profile');
             setMenuOpen(false);
           }}>Profile</button>
@@ -180,16 +196,26 @@ const Home: React.FC<HomeProps> = ({
             setMenuOpen(false);
           }}>Perpustakaan</button>
           <button className="dropdown-item" onClick={() => {
+            navigate('/fines');
+            setMenuOpen(false);
+          }}>💰 Bayar Denda</button>
+          <button className="dropdown-item" onClick={() => {
             onMenuClick('notification-history');
             setMenuOpen(false);
           }}>Notifikasi</button>
+  
           {userData.role === 'admin' && (
             <button className="dropdown-item" onClick={() => {
               navigate('/admin-dashboard');
               setMenuOpen(false);
             }}>Admin Dashboard</button>
           )}
-          <button className="dropdown-item logout" onClick={onLogout}>Logout</button>
+          <button className="dropdown-item logout" onClick={() => {
+            sessionStorage.removeItem('token');
+            sessionStorage.removeItem('userData');
+            sessionStorage.removeItem('lastActivity');
+            window.location.replace('/');
+          }}>Logout</button>
         </nav>
       )}
 
@@ -240,6 +266,10 @@ const Home: React.FC<HomeProps> = ({
           type={toast.type}
           onClose={() => setToast(null)}
         />
+      )}
+      
+      {userData?.id && (
+        <PushNotificationPrompt userId={userData.id} role="user" />
       )}
     </div>
   );

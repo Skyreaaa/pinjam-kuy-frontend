@@ -1,3 +1,484 @@
+/* --- MOBILE: CENTER FILTER, REFRESH BUTTON, HILANGKAN SPASI BAWAH CARD --- */
+@media (max-width: 767px) {
+    .category-filter-v5 {
+        justify-content: center !important;
+        margin-bottom: 14px !important;
+        margin-top: 0 !important;
+    }
+    .refresh-button-v5 {
+        display: flex !important;
+        justify-content: flex-start !important;
+        align-items: center !important;
+        margin: 0 0 14px 0 !important;
+        float: none !important;
+        width: auto !important;
+        min-width: 90px !important;
+        max-width: 160px !important;
+        padding: 7px 16px !important;
+        margin-left: 21px !important;
+        box-sizing: border-box !important;
+    }
+    .book-cards-v5 {
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
+    }
+    .book-card-v5 {
+        margin-bottom: 6px !important;
+    }
+}
+/* --- BOOK CARD: COVER LEBIH KECIL, INFO RAPAT, TIDAK ADA GAP BEKAS STOK --- */
+.book-cover-v5 {
+    width: 54px !important;
+    height: 72px !important;
+    margin: 0 !important;
+    border-radius: 8px !important;
+    flex-shrink: 0 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+}
+.book-info-v5 {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    gap: 2px;
+    margin-top: 0 !important;
+}
+.book-kode-v5 {
+    margin-top: 0 !important;
+}
+.book-info-v5 h4, .book-author-v5, .book-desc-v5 {
+    margin-top: 0 !important;
+}
+.book-desc-v5 {
+    font-size: 0.8rem !important;
+    line-height: 1.3 !important;
+    margin-bottom: 0 !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+/* --- BOOK CARD: STOK DI POJOK KANAN ATAS --- */
+.book-card-v5 {
+    position: relative;
+}
+.book-stock-v5 {
+    position: absolute;
+    top: 12px;
+    right: 16px;
+    margin: 0 !important;
+    font-size: 0.8rem;
+    color: var(--color-success);
+    font-weight: 600;
+    background: rgba(255,255,255,0.08);
+    padding: 2px 10px;
+    border-radius: 10px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 70px;
+    justify-content: flex-end;
+}
+.book-stock-v5 .available {
+    color: var(--color-success);
+}
+.book-stock-v5 .unavailable {
+    color: var(--color-error);
+}
+@media (max-width: 767px) {
+    .book-stock-v5 {
+        top: 10px;
+        right: 10px;
+        font-size: 0.78rem;
+        padding: 2px 8px;
+        min-width: 60px;
+    }
+}
+/* --- MOBILE: BOOK CARD SAMA DENGAN HEADER, LOAN CARD NORMAL --- */
+@media (max-width: 767px) {
+    .book-card-v5 {
+        width: 100% !important;
+        max-width: 380px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        border-radius: 14px !important;
+        padding: 10px 12px 10px 12px !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .header-content-v5 {
+        max-width: 380px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+    /* Hapus override loan-card-v5 agar kembali ke default */
+    .loan-card-v5 {
+        width: unset !important;
+        max-width: unset !important;
+        margin: unset !important;
+        padding: unset !important;
+        border-radius: unset !important;
+        box-shadow: unset !important;
+        left: unset !important;
+        right: unset !important;
+        min-width: unset !important;
+        display: unset !important;
+        flex-direction: unset !important;
+        align-items: unset !important;
+        background: unset !important;
+        overflow: unset !important;
+    }
+}
+/* --- MOBILE: SINKRON UKURAN CARD LOAN DENGAN HEADER --- */
+@media (max-width: 767px) {
+    .loan-card-v5 {
+        width: 100% !important;
+        max-width: 380px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+        border-radius: 14px !important;
+        padding: 14px 12px 14px 12px !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .header-content-v5 {
+        max-width: 380px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+}
+/* --- MOBILE: CARD LOAN LEBIH KECIL, DESKRIPSI TERBATAS & JUSTIFY --- */
+@media (max-width: 767px) {
+    .loan-card-v5 {
+        width: 90vw !important;
+        max-width: 320px !important;
+        min-width: 0 !important;
+        margin: 12px auto !important;
+        padding: 12px 8px 12px 8px !important;
+        border-radius: 14px !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    .loan-body-v5 .book-desc-v5 {
+        max-height: 2.6em;
+        overflow: hidden;
+        text-align: justify !important;
+        margin-bottom: 4px;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        word-break: break-word;
+    }
+}
+/* --- MOBILE: FIX ALL PARENT CONTAINERS FOR LOAN CARD --- */
+@media (max-width: 767px) {
+    .borrowing-page-container-v5,
+    .main-content-area-v5,
+    .book-list-container-v5,
+    .loan-list-v5 {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        min-width: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-sizing: border-box !important;
+        overflow-x: hidden !important;
+        left: 0 !important;
+        right: 0 !important;
+    }
+}
+/* --- FINAL POLISH: LOAN CARD MOBILE CENTER, KECIL, RAPIH --- */
+@media (max-width: 767px) {
+    .loan-card-v5 {
+        margin-left: auto !important;
+        margin-right: auto !important;
+        left: 0 !important;
+        right: 0 !important;
+        width: 92vw !important;
+        max-width: 340px !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+        border-radius: 16px !important;
+        padding: 14px 10px 14px 10px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        background: var(--color-card-bg);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.10);
+        overflow: hidden !important;
+    }
+    .loan-header-v5, .loan-body-v5, .loan-footer-v5 {
+        width: 100%;
+        text-align: center !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin-left: 0;
+        margin-right: 0;
+        padding-left: 0;
+        padding-right: 0;
+        overflow: hidden !important;
+    }
+    .loan-body-v5 h4 {
+        font-size: 1rem;
+        font-weight: 700;
+        margin: 0 0 5px 0;
+        text-align: center !important;
+        line-height: 1.25;
+        word-break: break-word;
+        overflow: hidden;
+    }
+    .loan-date-info, .loan-date-info.late-text {
+        text-align: center !important;
+        margin: 0 auto 3px auto;
+        font-size: 0.93rem;
+        overflow: hidden;
+    }
+    .loan-kode-v5 {
+        text-align: center !important;
+        margin: 0 auto 3px auto;
+        font-size: 0.82rem;
+        color: #a0b3c9;
+        font-weight: 600;
+        overflow: hidden;
+    }
+    .loan-footer-v5 {
+        margin-top: 8px;
+        text-align: center !important;
+        overflow: hidden;
+    }
+    .location-guide, .penalty-info, .loan-status-tag {
+        text-align: center !important;
+        margin: 0 auto 3px auto;
+        overflow: hidden;
+    }
+}
+/* --- LOAN CARD MOBILE CENTER & INFO RAPIH --- */
+@media (max-width: 767px) {
+    .loan-card-v5 {
+        margin-left: auto !important;
+        margin-right: auto !important;
+        left: 0 !important;
+        right: 0 !important;
+        width: 95vw !important;
+        max-width: 420px !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+        border-radius: 18px !important;
+        padding: 16px 12px 16px 12px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        background: var(--color-card-bg);
+        box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+    }
+    .loan-header-v5, .loan-body-v5, .loan-footer-v5 {
+        width: 100%;
+        text-align: center !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin-left: 0;
+        margin-right: 0;
+        padding-left: 0;
+        padding-right: 0;
+    }
+    .loan-body-v5 h4 {
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin: 0 0 6px 0;
+        text-align: center !important;
+        line-height: 1.3;
+        word-break: break-word;
+    }
+    .loan-date-info, .loan-date-info.late-text {
+        text-align: center !important;
+        margin: 0 auto 4px auto;
+        font-size: 0.95rem;
+    }
+    .loan-kode-v5 {
+        text-align: center !important;
+        margin: 0 auto 4px auto;
+        font-size: 0.85rem;
+        color: #a0b3c9;
+        font-weight: 600;
+    }
+    .loan-footer-v5 {
+        margin-top: 10px;
+        text-align: center !important;
+    }
+    .location-guide, .penalty-info, .loan-status-tag {
+        text-align: center !important;
+        margin: 0 auto 4px auto;
+    }
+}
+/* --- CARD BOOK LAYOUT POLISH --- */
+.book-card-v5 {
+    background-color: var(--color-card-bg);
+    color: var(--color-primary-text);
+    border-radius: var(--border-radius-medium);
+    padding: 16px 14px 16px 14px;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: flex-start !important;
+    min-height: 120px !important;
+    gap: 16px !important;
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 14px;
+}
+.book-cover-v5 {
+    width: 70px !important;
+    height: 90px !important;
+    margin: 0 !important;
+    border-radius: 10px !important;
+    flex-shrink: 0 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.book-info-v5 {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    gap: 2px;
+}
+.book-kode-v5 {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #a0b3c9;
+    margin-bottom: 2px;
+}
+.book-info-v5 h4 {
+    margin: 0 0 4px 0;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.2;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.book-author-v5 {
+    margin: 0 0 2px 0;
+    font-size: 0.85rem;
+    color: #e0e0e0;
+    font-weight: 500;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.book-desc-v5 {
+    margin: 0 0 6px 0;
+    font-size: 0.8rem;
+    color: #cfd8dc;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
+}
+.book-stock-v5 {
+    font-size: 0.8rem;
+    margin-top: 8px;
+    color: var(--color-success);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-left: 0;
+}
+.book-stock-v5 .available {
+    color: var(--color-success);
+}
+.book-stock-v5 .unavailable {
+    color: var(--color-error);
+}
+
+@media (min-width: 768px) {
+    .book-card-v5 {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        min-height: 220px !important;
+        gap: 0 !important;
+        padding: 18px 16px 18px 16px;
+    }
+    .book-cover-v5 {
+        width: 100% !important;
+        height: 120px !important;
+        margin: 0 0 12px 0 !important;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.10);
+    }
+    .book-stock-v5 {
+        margin-top: 10px;
+        padding-left: 0;
+    }
+}
+/* --- FIX: NO HORIZONTAL SCROLL ON MOBILE & RESPONSIVE BOOK CARD --- */
+html, body {
+    max-width: 100vw;
+    overflow-x: hidden !important;
+}
+
+.borrowing-page-wrapper-v5,
+.borrowing-page-container-v5,
+.main-content-area-v5,
+.book-list-container-v5 {
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+}
+
+.book-cards-v5 {
+    width: 100%;
+    margin: 0;
+    overflow-x: hidden !important;
+}
+
+/* Responsive book card: mobile = row, desktop = column */
+.book-card-v5 {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: stretch !important;
+    gap: 14px !important;
+}
+.book-cover-v5 {
+    width: 80px !important;
+    height: 110px !important;
+    margin: 0 !important;
+    border-radius: 10px !important;
+    flex-shrink: 0 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.book-info-v5 {
+    flex: 1 1 0% !important;
+    min-width: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+}
+
+@media (min-width: 768px) {
+    .book-card-v5 {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        min-height: 220px !important;
+        gap: 0 !important;
+    }
+    .book-cover-v5 {
+        width: 100% !important;
+        height: 120px !important;
+        margin: 0 0 12px 0 !important;
+    }
+}
 /* File: src/components/Peminjaman/BorrowingPage.css (KODE LENGKAP V5 - UI MOCKUP MATCH) */
 
 /* --- COLOR PALETTE V5 --- */
@@ -56,6 +537,7 @@
     flex: 1;
     display: flex;
     flex-direction: column;
+    overflow-x: hidden; /* Prevent horizontal scroll */
 }
 /* --- ICON CERIA --- */
 .ceria-icon-v5 {
@@ -166,32 +648,163 @@
 }
 
 /* --- CATEGORY FILTER (Book List) --- */
+/* Modern Toolbar Styling */
+.filter-toolbar-wrapper-v5 {
+    animation: slideIn 0.3s ease-out;
+}
+.toolbar-actions-v5 {
+    flex-shrink: 0;
+}
+@media (max-width: 767px) {
+    .filter-toolbar-wrapper-v5 {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+    }
+    .toolbar-actions-v5 {
+        width: 100%;
+        justify-content: space-between !important;
+    }
+    .category-filter-v5 {
+        width: 100%;
+        justify-content: center !important;
+    }
+}
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.modern-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 24px;
+    padding: 10px 20px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.modern-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+.modern-btn:active {
+    transform: translateY(0);
+}
+.icon-btn {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.icon-btn:hover {
+    transform: scale(1.1) rotate(5deg);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2) !important;
+}
+.icon-btn:active {
+    transform: scale(0.95);
+}
+.modern-input {
+    transition: all 0.3s;
+}
+.modern-input:focus {
+    outline: none;
+    border-color: #667eea !important;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+/* Desktop: Better grid layout */
+@media (min-width: 768px) {
+    .book-cards-v5 { 
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+    }
+}
+@media (min-width: 1200px) { 
+    .book-cards-v5 { 
+        grid-template-columns: repeat(4, 1fr);
+        gap: 26px;
+    }
+}
+/* --- CATEGORY FILTER (Book List) --- */
+.category-refresh-wrapper-v5 {
+    padding-left: 16px;
+    padding-right: 16px;
+}
+@media (max-width: 767px) {
+    .category-refresh-wrapper-v5 {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 16px !important;
+        max-width: 380px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+}
 .category-filter-v5 {
     display: flex;
     justify-content: flex-start;
-    gap: 10px;
-    margin-bottom: 20px;
-    overflow-x: auto;
+    gap: 12px;
+    margin-bottom: 0;
     padding-bottom: 5px;
+    flex-wrap: wrap;
+}
+@media (max-width: 767px) {
+    .category-filter-v5 {
+        justify-content: center !important;
+        gap: 8px;
+        width: 100%;
+    }
+    .filter-button-v5 {
+        font-size: 0.85rem;
+        padding: 8px 16px;
+    }
+    .refresh-button-v5.modern-btn {
+        align-self: flex-end;
+        margin-right: 0;
+    }
 }
 .filter-button-v5 {
-    background-color: #ecf0f1;
-    border: 1px solid #bdc3c7;
-    border-radius: 20px;
-    padding: 8px 15px;
-    font-size: 0.9rem;
+    background-color: #f8f9fa;
+    border: 2px solid #e9ecef;
+    border-radius: 24px;
+    padding: 10px 20px;
+    font-size: 0.92rem;
     cursor: pointer;
     white-space: nowrap;
-    transition: all 0.2s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 500;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+.filter-button-v5 .filter-icon {
+    display: inline-flex;
+    font-size: 1.1em;
+    transition: transform 0.3s;
 }
 .filter-button-v5:hover {
-    background-color: #e0e0e0;
+    background-color: #e9ecef;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+.filter-button-v5:hover .filter-icon {
+    transform: scale(1.1);
 }
 .filter-button-v5.active {
-    background-color: var(--color-action);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    border-color: var(--color-action);
+    border-color: transparent;
     font-weight: 600;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+.filter-button-v5.active .filter-icon {
+    animation: pulse 2s infinite;
+}
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
 }
 
 /* --- BOOK CARDS V5 (Book List) --- */
@@ -201,24 +814,27 @@
     gap: 20px; 
     align-items: stretch; 
     justify-items: stretch;
-    grid-auto-rows: minmax(220px, auto);
+    grid-auto-rows: auto;
 }
 @media (min-width: 640px) { 
     .book-cards-v5 { 
         grid-template-columns: repeat(2, 1fr);
         gap: 20px;
+        grid-auto-rows: minmax(180px, auto);
     }
 }
 @media (min-width: 768px) { 
     .book-cards-v5 { 
         grid-template-columns: repeat(3, 1fr);
         gap: 20px;
+        grid-auto-rows: minmax(200px, auto);
     }
 }
 @media (min-width: 1024px) { 
     .book-cards-v5 { 
         grid-template-columns: repeat(4, 1fr);
         gap: 22px;
+        grid-auto-rows: minmax(220px, auto);
     }
 }
 .book-card-v5 {
@@ -238,7 +854,18 @@
     position: relative;
 }
 .book-card-v5:focus-visible { outline:3px solid #59D3F8; outline-offset:3px; }
-.book-card-v5:hover { transform: translateY(-3px); box-shadow:0 8px 18px -4px rgba(0,0,0,.3); }
+.book-card-v5:hover { 
+    transform: translateY(-8px) scale(1.02); 
+    box-shadow: 0 12px 28px rgba(0,0,0,0.25);
+}
+@media (min-width: 768px) {
+    .book-card-v5 {
+        background: linear-gradient(145deg, #2c3e50 0%, #34495e 100%);
+    }
+    .book-card-v5:hover {
+        background: linear-gradient(145deg, #34495e 0%, #2c3e50 100%);
+    }
+}
 .book-cover-v5 {
     width: 100%;
     height: 120px;
@@ -683,20 +1310,23 @@
     }
 }
 .loan-card-v5 {
-        background-color: white;
-        padding: 20px 22px 24px;
-        border-radius: var(--border-radius-medium);
-        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
-        border:1px solid #e5e7eb;
-        border-left: 5px solid var(--color-card-bg);
-        transition: transform 0.18s, box-shadow 0.18s;
-        min-width: 200px;
-        min-height: 220px;
-        width: 100%;
-        cursor: pointer;
-        display:flex;
-        flex-direction:column;
-        gap: 12px;
+    background-color: white;
+    padding: 18px 16px 18px 16px;
+    border-radius: var(--border-radius-medium);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+    border: 1.5px solid #e5e7eb;
+    border-left: 6px solid var(--color-card-bg);
+    transition: transform 0.18s, box-shadow 0.18s;
+    min-width: 220px;
+    min-height: 220px;
+    max-width: 320px;
+    aspect-ratio: 1/1;
+    width: 100%;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0 auto;
 }
 .loan-card-v5:hover {
         transform: translateY(-3px);
@@ -706,8 +1336,8 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
     border-bottom: 1px dashed #eee;
     gap: 8px;
 }
@@ -722,16 +1352,19 @@
     flex: 1;
 }
 .loan-body-v5 h4 {
-    margin: 0 0 12px 0;
-    color: #2c3e50;
-    font-size: 1.05rem;
+    margin: 0 0 8px 0;
+    color: #1a3263;
+    font-size: 1.08rem;
     word-wrap: break-word;
     overflow-wrap: break-word;
-    line-height: 1.5;
-    font-weight: 600;
+    line-height: 1.4;
+    font-weight: 700;
 }
 .loan-body-v5 {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 .loan-date-info {
     font-size: 0.9rem;
@@ -750,8 +1383,11 @@
 }
 .loan-footer-v5 {
     margin-top: auto;
-    padding-top: 12px;
+    padding-top: 10px;
     border-top: 1px dashed #eee;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 .location-guide {
     font-size: 0.95rem;
@@ -871,6 +1507,7 @@
     position: relative;
     left: 0;
     right: 0;
+    overflow-x: hidden; /* Prevent horizontal scroll */
 }
 .qr-content-box {
     padding: 20px;
@@ -1033,15 +1670,17 @@
 .upload-progress-modal {
     background: white;
     padding: 30px;
-    border-radius: 16px;
+    flex-direction: row;
     width: 90%;
     max-width: 400px;
     text-align: center;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    min-height: 120px;
 }
 .upload-progress-modal h3 {
     margin-top: 0;
     margin-bottom: 20px;
+        gap: 14px;
     color: #2c3e50;
     font-size: 1.3rem;
 }

@@ -1,3 +1,172 @@
+.qrscan-camera-container > div[style*='border: 3px solid'] {
+    animation: qrtrack-pulse 1.2s infinite alternate;
+}
+@keyframes qrtrack-pulse {
+    from { box-shadow: 0 0 12px 2px #2ecc7160; }
+    to   { box-shadow: 0 0 24px 6px #2ecc7190; }
+}
+/* Dropdown kamera QR scan */
+.qrscan-device-select {
+    margin-bottom: 8px;
+    width: 100%;
+    padding: 8px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    font-size: 1rem;
+}
+/* --- QR SCAN MODAL MODERN --- */
+.qrscan-modal-modern {
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    padding: 2.5rem 2rem 2rem 2rem;
+    max-width: 420px;
+    margin: 0 auto;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    animation: fadeSlideIn .3s cubic-bezier(.4,0,.2,1);
+}
+.qrscan-camera-container {
+    width: 100%;
+    max-width: 340px;
+    aspect-ratio: 1/1;
+    background: #f4f6f9;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+}
+.qrscan-camera-placeholder {
+    width: 100%;
+    height: 320px;
+    background: repeating-linear-gradient(135deg, #f4f6f9, #e9ecef 20px);
+    border-radius: 12px;
+}
+.qrscan-instructions {
+    margin-top: 0.5rem;
+    color: #666;
+    font-size: 1rem;
+    text-align: center;
+}
+.qrscan-error {
+    color: var(--color-danger);
+    background: #fff0f0;
+    border: 1px solid var(--color-danger);
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    margin-top: 1rem;
+    font-size: 0.95rem;
+    text-align: center;
+}
+@keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(40px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+/* Book cover preview in BookModal */
+.image-preview-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+.cover-preview {
+    width: 120px;
+    height: 160px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    background: #f8f8f8;
+    margin-bottom: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+.cover-placeholder {
+    width: 120px;
+    height: 160px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    background: #f8f8f8;
+    color: #aaa;
+    font-size: 13px;
+    margin-bottom: 8px;
+}
+/* Custom date filter input for history page */
+/* Date filter input & select modern look */
+.date-filter-input {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-alt);
+    padding: 6px 14px;
+    font-size: 1rem;
+    color: var(--color-text-soft);
+    outline: none;
+    transition: border .18s, background .18s;
+    min-width: 110px;
+    height: 36px;
+    box-sizing: border-box;
+    appearance: none;
+}
+.date-filter-input:focus {
+    border-color: var(--color-primary);
+    background: #fff;
+    color: var(--color-text);
+}
+.date-filter-input::-webkit-input-placeholder { color: var(--color-text-faint); }
+.date-filter-input::placeholder { color: var(--color-text-faint); }
+
+select.date-filter-input {
+    padding-right: 28px;
+    background-image: url('data:image/svg+xml;utf8,<svg fill="%23999" height="20" viewBox="0 0 20 20" width="20" xmlns="http://www.w3.org/2000/svg"><path d="M7.293 8.293a1 1 0 011.414 0L10 9.586l1.293-1.293a1 1 0 111.414 1.414l-2 2a1 1 0 01-1.414 0l-2-2a1 1 0 010-1.414z"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 18px 18px;
+    cursor: pointer;
+}
+
+.date-filter-input:not(:last-child) {
+    margin-right: 4px;
+}
+/* Tab Filter Buttons for Fine Payments */
+.btn.btn-tab {
+    background: var(--color-surface-alt);
+    color: var(--color-text-soft);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    padding: 6px 18px;
+    font-size: 1rem;
+    font-weight: 500;
+    margin: 0;
+    transition: background .18s, color .18s, border .18s;
+    box-shadow: none;
+    outline: none;
+}
+.btn.btn-tab:hover {
+    background: var(--color-primary-hover);
+    color: #fff;
+    border-color: var(--color-primary);
+}
+.btn.btn-tab.btn-tab-active,
+.btn.btn-tab[aria-pressed="true"] {
+    background: var(--color-primary);
+    color: #fff;
+    border-color: var(--color-primary);
+    font-weight: 600;
+    box-shadow: var(--shadow-xs);
+}
+.tab-filter-group {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
 /* File: src/components/DashboardAdmin/AdminDashboard.css (FINAL FIX: Kontras & Keterbacaan Tinggi) */
 
 /* --- GLOBAL STYLES --- */
@@ -923,12 +1092,40 @@
 }
 
 .form-group input,
-.form-group select {
+.form-group select,
+.form-group textarea {
     width: 100%;
     padding: 0.6rem;
     border: 1px solid #ddd;
     border-radius: 4px;
     box-sizing: border-box;
+}
+
+/* Dropdown select yang membuka ke bawah */
+.form-group select.dropdown-bottom,
+.form-group select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.7rem top 50%;
+    background-size: 1.2rem auto;
+    padding-right: 2.5rem;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-group select:focus,
+.form-group select.dropdown-bottom:focus {
+    border-color: #667eea;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-group select:hover,
+.form-group select.dropdown-bottom:hover {
+    border-color: #999;
 }
 
 /* Hapus ruleset kosong .btn-save; styling sudah ada di komponen */

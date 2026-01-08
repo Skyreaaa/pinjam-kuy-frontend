@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { loanApi } from '../../services/api';
+import { loanApi, userNotificationApi } from '../../services/api';
 import { FaArrowLeft, FaCheckCircle, FaTimesCircle, FaBell, FaMoneyBillWave, FaCalendarAlt, FaFilter, FaMapMarkerAlt, FaImage, FaTimes } from 'react-icons/fa';
 import { format, startOfDay, endOfDay, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval, subMonths } from 'date-fns';
 import { id } from 'date-fns/locale';
@@ -18,7 +18,7 @@ type NotificationItem = {
   actualReturnDate?: string;
   returnDecision?: 'approved' | 'rejected';
   rejectionDate?: string;
-  kind?: 'loan_approved'|'loan_rejected'|'return_approved'|'return_rejected'|'fine_imposed'|'fine_paid'|'fine_rejected';
+  kind?: 'loan_approved'|'loan_rejected'|'return_approved'|'return_rejected'|'fine_imposed'|'fine_paid'|'fine_rejected'|'broadcast'|'user_notif';
   amount?: number;
   timestamp?: Date;
   returnProofUrl?: string;
@@ -32,6 +32,8 @@ type NotificationItem = {
     address?: string;
     device?: string;
   };
+  message?: string; // For user notifications
+  type?: string; // success, error, warning, info
 };
 
 type FilterType = 'all' | 'today' | 'thisMonth' | 'lastMonth' | 'custom';
@@ -77,17 +79,19 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({ onBack }) => 
       setLoading(true);
       setError(null);
       try {
-        const [res, loans] = await Promise.all([
+        // Fetch both loan notifications and user/broadcast notifications
+        const [loanNotifRes, loans, userNotifRes] = await Promise.all([
           loanApi.notificationHistory(),
           loanApi.userLoans(),
+          userNotificationApi.list(),
         ]);
-        if (!res.success) {
-          setError((res as any as string) || 'Gagal mengambil riwayat notifikasi.');
+        if (!loanNotifRes.success) {
+          setError((loanNotifRes as any as string) || 'Gagal mengambil riwayat notifikasi.');
         }
-        const baseItems: NotificationItem[] = (res.items || []).map(it => {
+        // --- Loan-related notifications (existing logic) ---
+        const baseItems: NotificationItem[] = (loanNotifRes.items || []).map(it => {
           let kind: NotificationItem['kind'] = 'loan_approved';
           let timestamp = new Date();
-          
           if (it.returnDecision === 'approved') {
             kind = 'return_approved';
             timestamp = it.actualReturnDate ? new Date(it.actualReturnDate) : new Date();
@@ -101,7 +105,6 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({ onBack }) => 
             kind = 'loan_approved';
             timestamp = it.approvedAt ? new Date(it.approvedAt) : new Date();
           }
-          
           // Parse metadata if exists
           let metadata = null;
           if (it.returnProofMetadata) {
@@ -113,7 +116,6 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({ onBack }) => 
               console.warn('Failed to parse metadata:', e);
             }
           }
-          
           return { 
             ...it, 
             kind, 
@@ -123,7 +125,7 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({ onBack }) => 
           } as NotificationItem;
         });
 
-        // Derive fine-related entries from current loans snapshot
+        // --- Fine-related notifications (existing logic) ---
         const fineItems: NotificationItem[] = (loans || []).flatMap((l: any) => {
           const arr: NotificationItem[] = [];
           const amount = (l.penaltyAmount ?? l.fineAmount ?? 0) as number;
@@ -159,20 +161,28 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({ onBack }) => 
           return arr;
         });
 
+        // --- User/broadcast notifications (NEW) ---
+        const userNotifItems: NotificationItem[] = (Array.isArray(userNotifRes) ? userNotifRes : (userNotifRes?.data || userNotifRes?.items || [])).map((n: any) => {
+          return {
+            id: n.id,
+            bookTitle: n.message || 'Notifikasi',
+            status: n.type || 'info',
+            kind: 'user_notif', // Changed from 'broadcast' to 'user_notif'
+            timestamp: n.createdAt ? new Date(n.createdAt) : new Date(),
+            message: n.message, // Full message for detail view
+            type: n.type, // success, error, warning, info
+          };
+        });
+
         // Merge and de-duplicate by id+kind
         const key = (x: NotificationItem) => `${x.id}_${x.kind || 'unknown'}`;
         const mergedMap = new Map<string, NotificationItem>();
-        [...baseItems, ...fineItems].forEach(item => {
+        [...baseItems, ...fineItems, ...userNotifItems].forEach(item => {
           mergedMap.set(key(item), item);
         });
-        
         const items = Array.from(mergedMap.values()).sort((a, b) => {
           return (b.timestamp?.getTime() || 0) - (a.timestamp?.getTime() || 0);
         });
-        
-        console.log('📋 Notification items:', items);
-        console.log('🖼️ Items with proof:', items.filter(i => i.returnProofUrl));
-        
         setAllItems(items);
         setFilteredItems(items);
       } catch (e: any) {
@@ -260,6 +270,14 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({ onBack }) => 
 
   const renderIcon = (item: NotificationItem) => {
     const kind = item.kind;
+    if (kind === 'broadcast') return <FaBell className="notif-icon broadcast" />;
+    if (kind === 'user_notif') {
+      // Icon based on type
+      if (item.type === 'error') return <FaTimesCircle className="notif-icon rejected" />;
+      if (item.type === 'success') return <FaCheckCircle className="notif-icon approved" />;
+      if (item.type === 'warning') return <FaMoneyBillWave className="notif-icon warning" />;
+      return <FaBell className="notif-icon broadcast" />;
+    }
     if (kind === 'return_approved' || kind === 'fine_paid') return <FaCheckCircle className="notif-icon success" />;
     if (kind === 'return_rejected' || kind === 'loan_rejected' || kind === 'fine_rejected') return <FaTimesCircle className="notif-icon error" />;
     if (kind === 'fine_imposed') return <FaMoneyBillWave className="notif-icon warning" />;
@@ -269,6 +287,12 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({ onBack }) => 
 
   const renderLabel = (item: NotificationItem) => {
     switch (item.kind) {
+      case 'broadcast': return 'Pengumuman/Broadcast';
+      case 'user_notif': 
+        if (item.type === 'error') return 'Pengembalian Ditolak';
+        if (item.type === 'warning') return 'Pengembalian Disetujui (Denda)';
+        if (item.type === 'success') return 'Pengembalian Disetujui';
+        return 'Notifikasi';
       case 'return_approved': return 'Pengembalian Disetujui';
       case 'return_rejected': return 'Bukti Pengembalian Ditolak';
       case 'loan_rejected': return 'Pinjaman Ditolak';
@@ -384,6 +408,20 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({ onBack }) => 
                   <div className="notif-text">
                     <p className="notif-label">{renderLabel(item)}</p>
                     <p className="notif-book">{item.bookTitle}</p>
+                    {item.kind === 'user_notif' && item.message && (
+                      <div className="notif-detail-message" style={{
+                        marginTop: 10,
+                        padding: 12,
+                        background: item.type === 'error' ? '#fff1f0' : item.type === 'warning' ? '#fffbe6' : '#f6ffed',
+                        border: `1px solid ${item.type === 'error' ? '#ffccc7' : item.type === 'warning' ? '#ffe58f' : '#b7eb8f'}`,
+                        borderRadius: 8,
+                        fontSize: 13,
+                        lineHeight: '1.6',
+                        whiteSpace: 'pre-wrap'
+                      }}>
+                        {item.message}
+                      </div>
+                    )}
                     {item.kind?.startsWith('fine') && item.amount && (
                       <p className="notif-amount">{formatIDR(item.amount)}</p>
                     )}

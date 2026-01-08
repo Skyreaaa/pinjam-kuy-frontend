@@ -4,6 +4,9 @@ const webpack = require('webpack');
 module.exports = {
   webpack: {
     configure: (webpackConfig) => {
+      // Service worker sudah otomatis di-copy dari public/ folder oleh React saat build
+      // Tidak perlu CopyWebpackPlugin karena semua file di public/ otomatis masuk ke build
+      
       // 1. Tambahkan Fallback untuk Node Core Modules (untuk Axios dll.)
       webpackConfig.resolve.fallback = {
         "http": require.resolve("stream-http"),

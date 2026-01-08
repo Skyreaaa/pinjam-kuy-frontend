@@ -1,0 +1,158 @@
+/* Push Notification Prompt Styles */
+.push-prompt-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.push-prompt-card {
+  background: white;
+  border-radius: 16px;
+  padding: 32px 24px;
+  max-width: 450px;
+  width: 90%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  animation: slideUp 0.3s ease-out;
+  text-align: center;
+}
+
+.push-prompt-icon {
+  font-size: 4rem;
+  margin-bottom: 16px;
+  animation: bounce 1s ease-in-out infinite;
+}
+
+.push-prompt-card h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 12px;
+}
+
+.push-prompt-card > p {
+  color: #6c757d;
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+.push-prompt-features {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  color: #495057;
+  font-size: 0.95rem;
+  text-align: left;
+}
+
+.feature-icon {
+  font-size: 1.3rem;
+  min-width: 28px;
+}
+
+.push-prompt-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.btn-enable-push {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 14px 24px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-enable-push:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn-enable-push:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-dismiss-push {
+  background: transparent;
+  color: #6c757d;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-dismiss-push:hover:not(:disabled) {
+  background: #f8f9fa;
+  color: #495057;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .push-prompt-card {
+    padding: 24px 20px;
+  }
+
+  .push-prompt-icon {
+    font-size: 3rem;
+  }
+
+  .push-prompt-card h3 {
+    font-size: 1.3rem;
+  }
+
+  .feature-item {
+    font-size: 0.9rem;
+  }
+}

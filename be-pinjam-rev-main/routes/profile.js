@@ -4,12 +4,27 @@ const express = require('express');
 const router = express.Router();
 const checkAuth = require('../middleware/checkAuth');
 const profileController = require('../controllers/profileController');
+const UserNotification = require('../models/user_notifications');
 const fs = require('fs');
 const path = require('path');
 
 router.use(checkAuth); // set req.userData
 
 const getDBPool = (req) => req.app.get('dbPool');
+
+// GET /api/user/notifications - Get user notifications
+router.get('/notifications', async (req, res) => {
+    const { id } = req.userData || {};
+    if (!id) return res.status(401).json({ success: false, message: 'Token tidak valid.' });
+    
+    try {
+        const notifications = await UserNotification.getForUser(id, 50);
+        res.json({ success: true, data: notifications });
+    } catch (error) {
+        console.error('Error fetching user notifications:', error);
+        res.status(500).json({ success: false, message: 'Gagal mengambil notifikasi.' });
+    }
+});
 
 // GET /api/profile/me - data user saat ini
 router.get('/me', async (req, res) => {
@@ -149,22 +164,8 @@ router.post('/initiate-fines', async (req, res) => {
     }
 });
 
-// Upload bukti pembayaran -> set pending_verification
-const multer = require('multer');
-const fineProofStorage = multer.diskStorage({
-    destination: (req,file,cb)=>{
-        const dir = path.join(__dirname, '..', 'uploads', 'fine-proofs');
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive:true });
-        cb(null, dir);
-    },
-    filename: (req,file,cb)=>{
-        const unique = Date.now() + '-' + Math.round(Math.random()*1e9);
-        const ext = path.extname(file.originalname || '').toLowerCase();
-        cb(null, 'fine-'+unique+ext);
-    }
-});
-const uploadFineProof = multer({ storage: fineProofStorage, limits:{ fileSize: 5*1024*1024 }});
 
+const { uploadFineProof } = require('../middleware/upload');
 router.post('/upload-fine-proof', uploadFineProof.single('proof'), async (req,res)=>{
     if(!req.file){
         console.warn('[UPLOAD FINE PROOF] No file received');
@@ -182,8 +183,8 @@ router.post('/upload-fine-proof', uploadFineProof.single('proof'), async (req,re
         if (!rows.length) return res.status(404).json({ success:false, message:'Data denda tidak ditemukan.' });
         const invalid = rows.filter(r=> r.finePaymentStatus !== 'awaiting_proof');
         if (invalid.length) return res.status(400).json({ success:false, message:'Ada denda bukan status awaiting_proof.' });
-        const relPath = '/uploads/fine-proofs/' + path.basename(req.file.path);
-        await pool.query(`UPDATE loans SET finePaymentStatus='pending_verification', finePaymentProof=? WHERE user_id=? AND id IN (${placeholders})`, [relPath, userId, ...ids]);
+        const proofUrl = req.file.path; // URL Cloudinary
+        await pool.query(`UPDATE loans SET finePaymentStatus='pending_verification', finePaymentProof=? WHERE user_id=? AND id IN (${placeholders})`, [proofUrl, userId, ...ids]);
 
         // --- NOTIFICATION INSERT (ADMIN AWARE) ---
         try {
@@ -203,12 +204,12 @@ router.post('/upload-fine-proof', uploadFineProof.single('proof'), async (req,re
             const totalAmount = rows.reduce((sum,r)=> sum + (Number(r.fineAmount)||0), 0);
             const method = rows[0]?.finePaymentMethod || null;
             const loanIdsJson = JSON.stringify(ids);
-            await pool.query(`INSERT INTO fine_payment_notifications (user_id, loan_ids, amount_total, method, proof_url, status) VALUES (?,?,?,?,?,'pending_verification')`, [userId, loanIdsJson, totalAmount, method, relPath]);
+            await pool.query(`INSERT INTO fine_payment_notifications (user_id, loan_ids, amount_total, method, proof_url, status) VALUES (?,?,?,?,?,'pending_verification')`, [userId, loanIdsJson, totalAmount, method, proofUrl]);
         } catch (notifyErr) {
             console.warn('[FINE][NOTIFY] gagal membuat notifikasi pembayaran denda:', notifyErr.message);
         }
 
-        return res.json({ success:true, proofUrl: relPath, updatedIds: ids, status:'pending_verification' });
+        return res.json({ success:true, proofUrl: proofUrl, updatedIds: ids, status:'pending_verification' });
     } catch (e){
         console.error('Error upload-fine-proof:', e);
         return res.status(500).json({ success:false, message:'Gagal upload bukti.' });

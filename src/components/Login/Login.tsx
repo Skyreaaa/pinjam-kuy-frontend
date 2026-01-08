@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Navbar from '../LandingPage/Navbar';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../../services/api';
 import './Login.css';
@@ -60,6 +61,16 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     try {
       const { token, userData } = await authApi.login(npm, password);
       const redirectPath = userData && userData.role === 'admin' ? '/admin-dashboard' : '/home';
+      // Simpan token sesuai role
+      if (userData.role === 'admin') {
+        sessionStorage.setItem('admin_token', token);
+        sessionStorage.removeItem('token');
+      } else {
+        sessionStorage.setItem('token', token);
+        sessionStorage.removeItem('admin_token');
+      }
+      sessionStorage.setItem('userData', JSON.stringify(userData));
+      sessionStorage.setItem('lastActivity', Date.now().toString());
       onLogin({ token, userData, redirectPath });
       navigate(redirectPath);
     } catch (err: any) {
@@ -70,8 +81,36 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     }
   };
 
+  // Session timeout: auto logout jika idle > 20 menit
+  useEffect(() => {
+    const checkTimeout = () => {
+      const last = localStorage.getItem('lastActivity');
+      if (last && Date.now() - parseInt(last, 10) > 20 * 60 * 1000) {
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('userData');
+        localStorage.removeItem('lastActivity');
+        window.location.replace('/');
+      }
+    };
+    const interval = setInterval(checkTimeout, 60 * 1000);
+    window.addEventListener('mousemove', () => localStorage.setItem('lastActivity', Date.now().toString()));
+    window.addEventListener('keydown', () => localStorage.setItem('lastActivity', Date.now().toString()));
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('mousemove', () => localStorage.setItem('lastActivity', Date.now().toString()));
+      window.removeEventListener('keydown', () => localStorage.setItem('lastActivity', Date.now().toString()));
+    };
+  }, []);
+
   return (
     <div className="login-container" style={{ height: '100vh', width: '100%' }}>
+      <Navbar
+        isLoggedIn={false}
+        onNavigateToLanding={() => window.location.href = '/'}
+        onNavigateToCollection={() => window.location.href = '/collection'}
+        onNavigateToInformation={() => window.location.href = '/information'}
+        onNavigateToLogin={() => {}}
+      />
       <div className="login-bg-slideshow-wrapper">
         {slideshowImages.map((img, idx) => (
           <div

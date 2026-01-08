@@ -17,7 +17,10 @@ import CardContent from '@mui/material/CardContent';
 import Navbar from './Navbar';
 
 interface LandingPageProps {
+  isLoggedIn?: boolean;
+  userData?: any;
   onNavigateToLogin: () => void;
+  onNavigateToDashboard?: () => void;
   onNavigateToCollection?: () => void;
   onNavigateToInformation?: () => void;
 }
@@ -39,42 +42,56 @@ interface Book {
   imageUrl?: string;
 }
 
-const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigateToCollection, onNavigateToInformation }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ isLoggedIn, userData, onNavigateToLogin, onNavigateToDashboard, onNavigateToCollection, onNavigateToInformation }) => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [footerSearch, setFooterSearch] = useState('');
   const [books, setBooks] = useState<Book[]>([]);
   const [filteredBooks, setFilteredBooks] = useState<Book[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('Semua');
   const [isLoading, setIsLoading] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [showNavbar, setShowNavbar] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
   const [showInfoDropdown, setShowInfoDropdown] = useState(false);
 
   // Array gambar untuk slideshow - Gambar perpustakaan modern (5 gambar)
   const backgroundImages = [depanPerpusImg, dalamPerpusImg, kasirPerpusImg, lt2PerpusImg, phoneQrImg];
 
   useEffect(() => {
-    // Update URL untuk landing page
     window.history.replaceState(null, '', '/');
-    // Fetch books from backend
     fetchBooks();
-
-    // Slideshow background
     const intervalId = setInterval(() => {
-      setCurrentImageIndex((prevIndex) => 
-        (prevIndex + 1) % backgroundImages.length
-      );
-    }, 5000); // Ganti gambar setiap 5 detik
+      setCurrentImageIndex((prevIndex) => (prevIndex + 1) % backgroundImages.length);
+    }, 5000);
 
-    // Scroll effect untuk navbar
+    // Sticky hide/reveal navbar (mobile) dengan debounce
+    let lastScroll = window.scrollY;
+    let timeoutId: any = null;
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
+      const currentY = window.scrollY;
+      setIsScrolled(currentY > 50);
+      if (window.innerWidth <= 768) {
+        if (timeoutId) clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          if (currentY > lastScroll && currentY > 60) {
+            setShowNavbar(false); // scroll down, hide
+          } else {
+            setShowNavbar(true); // scroll up, show
+          }
+          lastScroll = currentY;
+        }, 60);
+      } else {
+        setShowNavbar(true); // always show on desktop
+      }
     };
     window.addEventListener('scroll', handleScroll);
-
     return () => {
       clearInterval(intervalId);
       window.removeEventListener('scroll', handleScroll);
+      if (timeoutId) clearTimeout(timeoutId);
     };
+    // eslint-disable-next-line
   }, []);
 
   // Handler untuk hover dropdown
@@ -105,21 +122,22 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
     }
   };
 
+  // Fungsi pencarian: tampilkan semua hasil yang cocok (bukan hanya 4)
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!searchQuery.trim()) {
-      setFilteredBooks(books.slice(0, 4));
-      return;
+    if (searchQuery.trim()) {
+      // Simpan kata kunci ke sessionStorage, redirect ke koleksi
+      sessionStorage.setItem('collection_search', searchQuery);
+      window.location.href = '/collection';
     }
-    
-    const filtered = books.filter(book => {
-      const title = book.judul || book.title || '';
-      const author = book.penulis || book.author || '';
-      const query = searchQuery.toLowerCase();
-      return title.toLowerCase().includes(query) || author.toLowerCase().includes(query);
-    });
-    setFilteredBooks(filtered.slice(0, 4));
   };
+
+  function handleFooterSearch() {
+    if (footerSearch.trim()) {
+      sessionStorage.setItem('collection_search', footerSearch);
+      window.location.href = '/collection';
+    }
+  }
 
   const handleCategoryFilter = (category: string) => {
     console.log('Filter clicked:', category);
@@ -141,11 +159,15 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
   // --- RENDER ---
   return (
     <div className="landing-page">
-      <Navbar 
+      <Navbar
+        isLoggedIn={isLoggedIn}
+        userData={userData}
         onNavigateToLogin={onNavigateToLogin}
+        onNavigateToDashboard={onNavigateToDashboard}
         onNavigateToInformation={onNavigateToInformation}
         onNavigateToLanding={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
         onNavigateToCollection={onNavigateToCollection}
+        showNavbar={showNavbar}
       />
       <nav className="nav-menu">
         {/* Navbar is now handled by Navbar.tsx for all navigation */}
@@ -176,7 +198,6 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
             {/* Search Box */}
             <form onSubmit={handleSearch} className="search-container-hero">
               <div className="search-wrapper">
-                <FaSearch className="search-icon" />
                 <input 
                   type="text" 
                   placeholder="Cari judul buku, penulis, atau kategori..." 
@@ -250,7 +271,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
           )}
         </div>
         <div className="view-more-container">
-          <button className="btn-view-more" onClick={onNavigateToCollection || onNavigateToLogin}>
+          <button className="btn-view-more" onClick={isLoggedIn ? onNavigateToCollection : onNavigateToLogin}>
             Lihat Semua Koleksi →
           </button>
         </div>
@@ -309,11 +330,18 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
           {/* Map */}
           <div className="map-container">
             <h3>Universitas Widyatama</h3>
-            <div className="map-placeholder">
-              <FaMapMarkerAlt className="map-icon" />
-              <p>Jl. Cikutra No.204A, Sukapada, Kec. Cibeunying Kidul, Kota Bandung</p>
+            <div className="map-embed-responsive" style={{ width: '100%', maxWidth: 600, height: 300, margin: '0 auto 1rem auto', borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 8px #0002' }}>
+              <iframe
+                src="https://www.google.com/maps/embed?pb=!4v1766995318163!6m8!1m7!1sCAoSFkNJSE0wb2dLRUlDQWdJRGNyTmlFQWc.!2m2!1d-6.898304807106765!2d107.6457916686441!3f152.40859004799623!4f0!5f0.7820865974627469"
+                width="100%"
+                height="300"
+                style={{ border: 0 }}
+                allowFullScreen={true}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Google Maps Perpustakaan Widyatama"
+              ></iframe>
             </div>
-            <a href="https://maps.google.com" target="_blank" rel="noopener noreferrer" className="view-map-link">View larger map</a>
           </div>
           {/* About */}
           <div className="about-container">
@@ -359,8 +387,14 @@ const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToLogin, onNavigate
             <h4>Cari</h4>
             <p>masukkan satu atau lebih kata kunci atau kombinasi dari berbagai jenis penyisiran, atau subjek</p>
             <div className="footer-search">
-              <input type="text" placeholder="Masukan kata kunci" />
-              <button>Cari Koleksi</button>
+              <input
+                type="text"
+                placeholder="Masukan kata kunci"
+                value={footerSearch}
+                onChange={e => setFooterSearch(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleFooterSearch(); } }}
+              />
+              <button onClick={handleFooterSearch}>Cari Koleksi</button>
             </div>
           </div>
         </div>

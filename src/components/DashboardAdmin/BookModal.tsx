@@ -8,10 +8,11 @@ import { adaptiveCompress, formatBytes } from '../../utils/imageProcessing';
 // --- INTERFACES ---
 interface BookData {
     id: number;
+    // API format fields
     title: string;
     author: string;
     kodeBuku: string;
-    publisher?: string; // dibuat opsional agar cocok dengan tipe Book di AdminDashboard
+    publisher?: string;
     publicationYear?: number;
     totalStock: number;
     availableStock: number;
@@ -19,6 +20,30 @@ interface BookData {
     image_url?: string;
     location: string;
     description?: string;
+    programStudi?: string;
+    bahasa?: string;
+    jenisKoleksi?: string;
+    lampiran?: string;
+    pemusatanMateri?: string;
+    pages?: number;
+    attachment_url?: string;
+    // Normalized format fields (for compatibility)
+    judul?: string;
+    penulis?: string;
+    kode_buku?: string;
+    penerbit?: string;
+    year?: string | number;
+    tahun?: string | number;
+    total_stock?: number;
+    available_stock?: number;
+    kategori?: string;
+    lokasi?: string;
+    deskripsi?: string;
+    program_studi?: string;
+    jenis_koleksi?: string;
+    pemusatan_materi?: string;
+    jumlah_halaman?: number;
+    imageUrl?: string;
 }
 
 interface BookModalProps {
@@ -31,7 +56,100 @@ interface BookModalProps {
 }
 
 // Konfigurasi Kategori Buku
-const BOOK_CATEGORIES = ['Fiksi', 'Non-Fiksi', 'Sains', 'Sejarah', 'Komputer', 'Jurnal', 'Lainnya'];
+const BOOK_CATEGORIES = [
+    'Filsafat',
+    'Teknik',
+    'Sains & Teknologi',
+    'Ekonomi & Bisnis',
+    'Hukum',
+    'Pendidikan',
+    'Sastra & Bahasa',
+    'Sejarah',
+    'Agama',
+    'Kesehatan',
+    'Komputer & IT',
+    'Seni & Budaya',
+    'Fiksi',
+    'Non-Fiksi',
+    'Referensi',
+    'Lainnya'
+];
+
+// Program Studi Options
+const PROGRAM_STUDI = [
+    'Doktor Ilmu Manajemen',
+    'S1 - Teknik',
+    'S1 - Hukum',
+    'S1 - Ekonomi',
+    'S1 - Kedokteran',
+    'S1 - Matematika',
+    'S1 - Biologi',
+    'S1 - Komputer',
+    'S1 - Psikologi',
+    'S1 - Sastra',
+    'S1 - Agama',
+    'S1 - Sejarah',
+    'S1 - Seni',
+    'S1 - Musik'
+];
+
+// Bahasa Options
+const BAHASA_OPTIONS = [
+    'Bahasa Indonesia',
+    'Bahasa Inggris',
+    'Bahasa Jepang',
+    'Bahasa Arab',
+    'Bahasa Mandarin',
+    'Bahasa Korea',
+    'Lainnya'
+];
+
+// Jenis Koleksi Options
+const JENIS_KOLEKSI = [
+    'Buku Asli',
+    'Buku Salinan',
+    'E-Book',
+    'Jurnal',
+    'Majalah',
+    'DVD',
+    'Referensi'
+];
+
+// Lampiran Options
+const LAMPIRAN_OPTIONS = [
+    'Tidak Ada',
+    'PDF',
+    'Video',
+    'Audio',
+    'Presentasi'
+];
+
+// Pemusatan Materi Options
+const PEMUSATAN_MATERI = [
+    'Teknik',
+    'Manajemen',
+    'Ekonomi',
+    'Hukum',
+    'Kedokteran',
+    'Matematika',
+    'Biologi',
+    'Komputer',
+    'Psikologi',
+    'Sastra',
+    'Agama',
+    'Sejarah',
+    'Seni',
+    'Musik',
+    'Jurnal Nasional',
+    'Jurnal Internasional',
+    'Bahan Referensi',
+    'Buku Ilmiah',
+    'Buku Populer',
+    'Buku Pendidikan',
+    'Buku Penelitian',
+    'Buku Teks',
+    'Lainnya'
+];
 
 const BookModal: React.FC<BookModalProps> = ({ isOpen, onClose, bookToEdit, onSave, error, isLoading }) => {
     const [formData, setFormData] = useState<Partial<BookData>>({});
@@ -39,33 +157,55 @@ const BookModal: React.FC<BookModalProps> = ({ isOpen, onClose, bookToEdit, onSa
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [processing, setProcessing] = useState(false);
     const [imageInfo, setImageInfo] = useState<string | null>(null);
+    const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+    const [attachmentUrl, setAttachmentUrl] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const attachmentInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
+        console.log('📘 BookModal opened - isOpen:', isOpen, 'bookToEdit:', bookToEdit);
         if (bookToEdit) {
-            setFormData({
-                title: bookToEdit.title,
-                author: bookToEdit.author,
-                kodeBuku: bookToEdit.kodeBuku,
-                publisher: bookToEdit.publisher || '',
-                publicationYear: bookToEdit.publicationYear || new Date().getFullYear(),
-                totalStock: bookToEdit.totalStock,
-                availableStock: bookToEdit.availableStock, // Available stock hanya dihitung saat update
-                category: bookToEdit.category,
-                location: bookToEdit.location,
-                description: bookToEdit.description || '',
-            });
-            setImagePreview(bookToEdit.image_url || null);
+            console.log('📖 Loading book for edit:', JSON.stringify(bookToEdit, null, 2));
+            
+            // Support both normalized (judul/penulis) and API format (title/author)
+            const loadedData = {
+                title: bookToEdit.title || bookToEdit.judul || '',
+                author: bookToEdit.author || bookToEdit.penulis || '',
+                kodeBuku: bookToEdit.kodeBuku || bookToEdit.kode_buku || '',
+                publisher: bookToEdit.publisher || bookToEdit.penerbit || '',
+                publicationYear: Number(bookToEdit.publicationYear || bookToEdit.year || bookToEdit.tahun || new Date().getFullYear()),
+                totalStock: Number(bookToEdit.totalStock || bookToEdit.total_stock || 1),
+                availableStock: Number(bookToEdit.availableStock || bookToEdit.available_stock || 0),
+                category: bookToEdit.category || bookToEdit.kategori || 'Lainnya',
+                location: bookToEdit.location || bookToEdit.lokasi || '',
+                description: bookToEdit.description || bookToEdit.deskripsi || '',
+                programStudi: bookToEdit.programStudi || bookToEdit.program_studi || '',
+                bahasa: bookToEdit.bahasa || 'Bahasa Indonesia',
+                jenisKoleksi: bookToEdit.jenisKoleksi || bookToEdit.jenis_koleksi || 'Buku Asli',
+                lampiran: bookToEdit.lampiran || 'Tidak Ada',
+                pemusatanMateri: bookToEdit.pemusatanMateri || bookToEdit.pemusatan_materi || '',
+                pages: bookToEdit.pages || bookToEdit.jumlah_halaman || undefined,
+            };
+            console.log('✅ Form data loaded:', JSON.stringify(loadedData, null, 2));
+            setFormData(loadedData);
+            setImagePreview(bookToEdit.image_url || bookToEdit.imageUrl || null);
+            setAttachmentUrl(bookToEdit.attachment_url || null);
             setCoverImage(null);
+            setAttachmentFile(null);
         } else {
+            console.log('➕ Opening form for new book');
             setFormData({ 
                 title: '', author: '', kodeBuku: '', publisher: '', category: 'Fiksi', location: '',
-                totalStock: 1, publicationYear: new Date().getFullYear(), availableStock: 1, description: ''
+                totalStock: 1, publicationYear: new Date().getFullYear(), availableStock: 1, description: '',
+                programStudi: '', bahasa: 'Bahasa Indonesia', jenisKoleksi: 'Buku Asli', 
+                lampiran: 'Tidak Ada', pemusatanMateri: '', pages: undefined
             });
             setImagePreview(null);
+            setAttachmentUrl(null);
             setCoverImage(null);
+            setAttachmentFile(null);
         }
-    }, [bookToEdit]);
+    }, [bookToEdit, isOpen]);
 
     if (!isOpen) return null;
 
@@ -125,6 +265,45 @@ const BookModal: React.FC<BookModalProps> = ({ isOpen, onClose, bookToEdit, onSa
         }
     };
 
+    const handleAttachmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0] || null;
+        if (!file) {
+            setAttachmentFile(null);
+            return;
+        }
+        // Validasi file berdasarkan jenis lampiran
+        const lampiranType = formData.lampiran || 'Tidak Ada';
+        if (lampiranType === 'PDF' && file.type !== 'application/pdf') {
+            alert('File harus berupa PDF.');
+            if (attachmentInputRef.current) attachmentInputRef.current.value = '';
+            return;
+        }
+        if (lampiranType === 'Audio' && !file.type.startsWith('audio/')) {
+            alert('File harus berupa audio.');
+            if (attachmentInputRef.current) attachmentInputRef.current.value = '';
+            return;
+        }
+        if (lampiranType === 'Video' && !file.type.startsWith('video/')) {
+            alert('File harus berupa video.');
+            if (attachmentInputRef.current) attachmentInputRef.current.value = '';
+            return;
+        }
+        if (lampiranType === 'Presentasi' && !['application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'].includes(file.type)) {
+            alert('File harus berupa presentasi (PPT/PPTX).');
+            if (attachmentInputRef.current) attachmentInputRef.current.value = '';
+            return;
+        }
+        setAttachmentFile(file);
+    };
+
+    const handleRemoveAttachment = () => {
+        setAttachmentFile(null);
+        setAttachmentUrl(null);
+        if (attachmentInputRef.current) {
+            attachmentInputRef.current.value = '';
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -145,11 +324,22 @@ const BookModal: React.FC<BookModalProps> = ({ isOpen, onClose, bookToEdit, onSa
         if (typeof formData.description === 'string') {
             dataToSend.append('description', formData.description);
         }
+        if (formData.programStudi) dataToSend.append('programStudi', formData.programStudi);
+        if (formData.bahasa) dataToSend.append('bahasa', formData.bahasa);
+        if (formData.jenisKoleksi) dataToSend.append('jenisKoleksi', formData.jenisKoleksi);
+        if (formData.lampiran) dataToSend.append('lampiran', formData.lampiran);
+        if (formData.pemusatanMateri) dataToSend.append('pemusatanMateri', formData.pemusatanMateri);
+        if (formData.pages) dataToSend.append('pages', String(formData.pages));
         
         // Hanya tambahkan file jika ada perubahan/file baru
         if (coverImage) {
             dataToSend.append('coverImage', coverImage);
-        } 
+        }
+        
+        // Tambahkan attachment file jika ada
+        if (attachmentFile) {
+            dataToSend.append('attachmentFile', attachmentFile);
+        }
         
         // Untuk mode edit, kirim nama file lama jika tidak ada upload baru
         if (isEditMode && bookToEdit?.image_url) {
@@ -216,6 +406,96 @@ const BookModal: React.FC<BookModalProps> = ({ isOpen, onClose, bookToEdit, onSa
                                     <label htmlFor="publicationYear">Tahun Terbit</label>
                                     <input type="number" id="publicationYear" name="publicationYear" value={formData.publicationYear || new Date().getFullYear()} onChange={handleChange} min="1900" max={new Date().getFullYear()} />
                                 </div>
+                            </div>
+                            <div className="form-group">
+                                <label htmlFor="programStudi">Program Studi</label>
+                                <select id="programStudi" name="programStudi" value={formData.programStudi || ''} onChange={handleChange} className="dropdown-bottom">
+                                    <option value="">-- Pilih Program Studi --</option>
+                                    {PROGRAM_STUDI.map(prodi => <option key={prodi} value={prodi}>{prodi}</option>)}
+                                </select>
+                            </div>
+                            <div className="form-group half-group">
+                                <div className="half-item">
+                                    <label htmlFor="bahasa">Bahasa</label>
+                                    <select id="bahasa" name="bahasa" value={formData.bahasa || 'Bahasa Indonesia'} onChange={handleChange} className="dropdown-bottom">
+                                        {BAHASA_OPTIONS.map(b => <option key={b} value={b}>{b}</option>)}
+                                    </select>
+                                </div>
+                                <div className="half-item">
+                                    <label htmlFor="jenisKoleksi">Jenis Koleksi</label>
+                                    <select id="jenisKoleksi" name="jenisKoleksi" value={formData.jenisKoleksi || 'Buku Asli'} onChange={handleChange} className="dropdown-bottom">
+                                        {JENIS_KOLEKSI.map(jk => <option key={jk} value={jk}>{jk}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="form-group half-group">
+                                <div className="half-item">
+                                    <label htmlFor="lampiran">Lampiran</label>
+                                    <select id="lampiran" name="lampiran" value={formData.lampiran || 'Tidak Ada'} onChange={handleChange} className="dropdown-bottom">
+                                        {LAMPIRAN_OPTIONS.map(l => <option key={l} value={l}>{l}</option>)}
+                                    </select>
+                                </div>
+                                <div className="half-item">
+                                    <label htmlFor="pages">Jumlah Halaman</label>
+                                    <input type="number" id="pages" name="pages" value={formData.pages || ''} onChange={handleChange} min="1" placeholder="Opsional" />
+                                </div>
+                            </div>
+                            
+                            {/* Upload Lampiran - Conditional berdasarkan jenis lampiran */}
+                            {formData.lampiran && formData.lampiran !== 'Tidak Ada' && (
+                                <div className="form-group">
+                                    <label htmlFor="attachmentFile">
+                                        Upload File {formData.lampiran}
+                                        {formData.lampiran === 'PDF' && ' (.pdf)'}
+                                        {formData.lampiran === 'Audio' && ' (.mp3, .wav, dll)'}
+                                        {formData.lampiran === 'Video' && ' (.mp4, .avi, dll)'}
+                                        {formData.lampiran === 'Presentasi' && ' (.ppt, .pptx)'}
+                                    </label>
+                                    <input 
+                                        type="file" 
+                                        id="attachmentFile" 
+                                        name="attachmentFile"
+                                        accept={
+                                            formData.lampiran === 'PDF' ? '.pdf' :
+                                            formData.lampiran === 'Audio' ? 'audio/*' :
+                                            formData.lampiran === 'Video' ? 'video/*' :
+                                            formData.lampiran === 'Presentasi' ? '.ppt,.pptx' : '*'
+                                        }
+                                        onChange={handleAttachmentChange}
+                                        ref={attachmentInputRef}
+                                    />
+                                    {attachmentFile && (
+                                        <div style={{marginTop:8,display:'flex',alignItems:'center',gap:8}}>
+                                            <span style={{fontSize:'0.9em',color:'#27ae60'}}>✓ {attachmentFile.name}</span>
+                                            <button type="button" className="btn btn-danger btn-sm" onClick={handleRemoveAttachment} style={{padding:'2px 8px',fontSize:'0.8em'}}>
+                                                <FaTimes />
+                                            </button>
+                                        </div>
+                                    )}
+                                    {attachmentUrl && !attachmentFile && (
+                                        <div style={{marginTop:8,display:'flex',alignItems:'center',gap:8}}>
+                                            <a href={attachmentUrl} target="_blank" rel="noopener noreferrer" style={{fontSize:'0.9em',color:'#3498db'}}>
+                                                📎 File Lampiran Tersimpan
+                                            </a>
+                                            <button type="button" className="btn btn-danger btn-sm" onClick={handleRemoveAttachment} style={{padding:'2px 8px',fontSize:'0.8em'}}>
+                                                <FaTimes /> Hapus
+                                            </button>
+                                        </div>
+                                    )}
+                                    <p className="info-note" style={{fontSize:'0.85em',marginTop:6}}>
+                                        {formData.lampiran === 'Tidak Ada' 
+                                            ? 'Buku fisik di perpustakaan, tidak perlu upload file.' 
+                                            : 'Upload file lampiran sesuai jenis yang dipilih.'}
+                                    </p>
+                                </div>
+                            )}
+                            
+                            <div className="form-group">
+                                <label htmlFor="pemusatanMateri">Pemusatan Materi</label>
+                                <select id="pemusatanMateri" name="pemusatanMateri" value={formData.pemusatanMateri || ''} onChange={handleChange} className="dropdown-bottom">
+                                    <option value="">-- Pilih Pemusatan Materi --</option>
+                                    {PEMUSATAN_MATERI.map(pm => <option key={pm} value={pm}>{pm}</option>)}
+                                </select>
                             </div>
                             {isEditMode && (
                                 <div className="form-group">

@@ -21,6 +21,13 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({ username }) => {
 
   const toggleMode = () => setMode(m => (m === 'dark' ? 'light' : 'dark'));
 
+  const handleLogout = () => {
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('userData');
+    localStorage.removeItem('lastActivity');
+    window.location.replace('/');
+  };
+
   return (
     <header className="admin-header" role="banner">
       <h1>Dashboard Admin</h1>
@@ -35,6 +42,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({ username }) => {
           {mode === 'dark' ? '🌞' : '🌙'}
         </button>
         <p className="admin-header-user">Selamat datang, {username || 'Admin'}</p>
+        <button className="btn btn-logout" style={{marginLeft:16}} onClick={handleLogout}>Logout</button>
       </div>
     </header>
   );

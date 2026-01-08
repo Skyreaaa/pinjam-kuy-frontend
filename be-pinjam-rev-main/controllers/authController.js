@@ -1,3 +1,4 @@
+require('dotenv').config();
 // File: backend/controllers/authController.js (Diperbarui)
 
 const jwt = require('jsonwebtoken');
@@ -5,7 +6,8 @@ const bcrypt = require('bcrypt');
 const dotenv = require('dotenv');
 
 dotenv.config();
-const JWT_SECRET = process.env.JWT_SECRET || 'ganti-dengan-secret-key-yang-kuat'; 
+if (!process.env.JWT_SECRET) { throw new Error('JWT_SECRET wajib di-set di .env!'); }
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const getUserDataWithoutHash = (user) => {
     // Pastikan password tidak ikut terkirim
@@ -95,6 +97,13 @@ exports.login = async (req, res) => {
 
         if (verbose) console.log('[LOGIN] Success for user id=%s role=%s', user.id, user.role);
 
+        // Simpan user ke session
+        req.session.user = {
+            id: normalizedUser.id,
+            npm: normalizedUser.npm,
+            username: normalizedUser.username,
+            role: normalizedUser.role
+        };
         return res.status(200).json({
             success: true,
             message: 'Login berhasil!',

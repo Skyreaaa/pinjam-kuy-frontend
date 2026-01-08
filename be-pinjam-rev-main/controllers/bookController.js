@@ -38,7 +38,7 @@ exports.getAllBooks = async (req, res) => {
 
     // popular: based on total loans count (descending)
     // newest: based on publicationYear (desc) then id desc
-    let baseSelect = `SELECT b.id, b.title, b.kodeBuku, b.author, b.publisher, b.publicationYear, b.totalStock, b.availableStock, b.category, b.image_url, b.location, b.description,
+    let baseSelect = `SELECT b.id, b.title, b.kodeBuku, b.author, b.publisher, b.publicationYear, b.totalStock, b.availableStock, b.category, b.image_url, b.location, b.description, b.programStudi, b.bahasa, b.jenisKoleksi, b.lampiran, b.attachment_url, b.pemusatanMateri, b.pages,
         (SELECT COUNT(*) FROM loans l WHERE l.book_id = b.id) AS borrowCount
         FROM books b WHERE 1=1`;
     let params = [];
@@ -65,11 +65,10 @@ exports.getAllBooks = async (req, res) => {
 
     try {
         const [rows] = await pool.query(baseSelect, params);
-        // Tambahkan BASE_URL ke image_url
-        const origin = getOrigin(req);
+        // Gunakan URL Cloudinary langsung (tanpa prefix lokal)
         const booksWithFullPath = rows.map(book => ({
             ...book,
-            image_url: book.image_url ? `${origin}/uploads/book-covers/${book.image_url}` : null
+            image_url: book.image_url || null
         }));
         res.json(booksWithFullPath);
     } catch (error) {
@@ -83,14 +82,13 @@ exports.getBookById = async (req, res) => {
     const pool = getDBPool(req);
     const bookId = req.params.id;
     try {
-    const [rows] = await pool.query('SELECT id, title, kodeBuku, author, publisher, publicationYear, totalStock, availableStock, category, image_url, location, description FROM books WHERE id = ?', [bookId]);
+    const [rows] = await pool.query('SELECT id, title, kodeBuku, author, publisher, publicationYear, totalStock, availableStock, category, image_url, location, description, programStudi, bahasa, jenisKoleksi, lampiran, attachment_url, pemusatanMateri, pages FROM books WHERE id = ?', [bookId]);
         if (rows.length === 0) {
             return res.status(404).json({ message: 'Buku tidak ditemukan.' });
         }
         const book = rows[0];
-    // Tambahkan origin dinamis ke image_url
-    const origin = getOrigin(req);
-    book.image_url = book.image_url ? `${origin}/uploads/book-covers/${book.image_url}` : null;
+    // Gunakan URL Cloudinary langsung
+    book.image_url = book.image_url || null;
         res.json(book);
     } catch (error) {
         console.error('❌ Error fetching book by ID:', error);
@@ -101,14 +99,21 @@ exports.getBookById = async (req, res) => {
 // 3. Menambah Buku Baru (POST /api/books)
 exports.createBook = async (req, res) => {
     const pool = getDBPool(req);
-    const { title, kodeBuku, author, publisher, publicationYear, totalStock, category, location, description } = req.body;
+    const { title, kodeBuku, author, publisher, publicationYear, totalStock, category, location, description, programStudi, bahasa, jenisKoleksi, lampiran, pemusatanMateri, pages } = req.body;
     
-    // Ambil nama file dari Multer
-    const imageFileName = req.file ? req.file.filename : null; 
+    // Ambil URL Cloudinary dari custom middleware
+    const imageUrl = req.coverUrl || null;
+    const attachmentUrl = req.attachmentUrl || null;
+
+    console.log('📝 [CREATE BOOK] Request:', { 
+        title, 
+        kodeBuku, 
+        lampiran, 
+        hasImage: !!imageUrl, 
+        hasAttachment: !!attachmentUrl 
+    });
 
     if (!title || !kodeBuku || !author || !totalStock || !category || !location) {
-        // Jika validasi gagal, hapus file yang sudah terupload
-        if (imageFileName) await deleteOldImage(imageFileName); 
         return res.status(400).json({ message: 'Semua field wajib diisi, termasuk Kode Buku dan Lokasi.' });
     }
 
@@ -116,25 +121,80 @@ exports.createBook = async (req, res) => {
         // Cek duplikasi Kode Buku
         const [duplicate] = await pool.query('SELECT id FROM books WHERE kodeBuku = ?', [kodeBuku]);
         if (duplicate.length > 0) {
-            if (imageFileName) await deleteOldImage(imageFileName);
             return res.status(400).json({ message: 'Kode Buku sudah digunakan.' });
         }
-        
-        const [result] = await pool.query(
-            'INSERT INTO books (title, kodeBuku, author, publisher, publicationYear, totalStock, availableStock, category, image_url, description, location) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [title, kodeBuku, author, publisher || null, publicationYear || null, totalStock, totalStock, category, imageFileName, description || null, location]
-        );
 
+        // Dynamically check which columns exist in the books table
+        const [columns] = await pool.query(`
+            SELECT COLUMN_NAME 
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = 'books'
+        `);
+        const existingColumns = columns.map(col => col.COLUMN_NAME);
+        
+        // Build dynamic insert query
+        const columnsToInsert = ['title', 'kodeBuku', 'author', 'publisher', 'publicationYear', 'totalStock', 'availableStock', 'category', 'image_url', 'description', 'location'];
+        const valuesToInsert = [title, kodeBuku, author, publisher || null, publicationYear || null, totalStock, totalStock, category, imageUrl, description || null, location];
+        
+        // Add optional columns if they exist in the table
+        if (existingColumns.includes('programStudi')) {
+            columnsToInsert.push('programStudi');
+            valuesToInsert.push(programStudi || null);
+        }
+        if (existingColumns.includes('bahasa')) {
+            columnsToInsert.push('bahasa');
+            valuesToInsert.push(bahasa || 'Bahasa Indonesia');
+        }
+        if (existingColumns.includes('jenisKoleksi')) {
+            columnsToInsert.push('jenisKoleksi');
+            valuesToInsert.push(jenisKoleksi || 'Buku Asli');
+        }
+        if (existingColumns.includes('lampiran')) {
+            columnsToInsert.push('lampiran');
+            valuesToInsert.push(lampiran || 'Tidak Ada');
+        }
+        if (existingColumns.includes('attachment_url')) {
+            columnsToInsert.push('attachment_url');
+            valuesToInsert.push(attachmentUrl);
+        }
+        if (existingColumns.includes('pemusatanMateri')) {
+            columnsToInsert.push('pemusatanMateri');
+            valuesToInsert.push(pemusatanMateri || null);
+        }
+        if (existingColumns.includes('pages')) {
+            columnsToInsert.push('pages');
+            valuesToInsert.push(pages || null);
+        }
+
+        const insertQuery = `INSERT INTO books (${columnsToInsert.join(', ')}) VALUES (${columnsToInsert.map(() => '?').join(', ')})`;
+        console.log('📊 [CREATE BOOK] SQL:', insertQuery);
+        console.log('📊 [CREATE BOOK] Values:', valuesToInsert);
+
+        const [result] = await pool.query(insertQuery, valuesToInsert);
+
+        // --- TRIGGER SOCKET.IO NOTIF BUKU BARU ---
+        try {
+            const io = req.app.get('io');
+            if (io) {
+                io.emit('notification', {
+                    message: `Buku baru "${title}" telah ditambahkan ke koleksi!`,
+                    type: 'info',
+                });
+            }
+        } catch (err) {
+            console.warn('[SOCKET.IO][NOTIF] Gagal kirim notif buku baru:', err.message);
+        }
+
+        console.log('✅ [CREATE BOOK] Success! Book ID:', result.insertId);
         res.status(201).json({ 
             success: true, 
             message: 'Buku berhasil ditambahkan.', 
             bookId: result.insertId 
         });
     } catch (error) {
-        // Jika ada error database, hapus file yang sudah terupload
-        if (imageFileName) await deleteOldImage(imageFileName);
-        console.error('❌ Error creating book:', error);
-        res.status(500).json({ message: 'Gagal menambahkan buku.' });
+        console.error('❌ [CREATE BOOK] Error:', error);
+        res.status(500).json({ message: 'Gagal menambahkan buku.', error: error.message });
     }
 };
 
@@ -142,14 +202,21 @@ exports.createBook = async (req, res) => {
 exports.updateBook = async (req, res) => {
     const pool = getDBPool(req);
     const bookId = req.params.id;
-    const { title, kodeBuku, author, publisher, publicationYear, totalStock, category, location, description, currentImageFileName } = req.body;
+    const { title, kodeBuku, author, publisher, publicationYear, totalStock, category, location, description, currentImageFileName, programStudi, bahasa, jenisKoleksi, lampiran, pemusatanMateri, pages } = req.body;
 
-    // Ambil nama file baru dari Multer (jika ada upload baru)
-    const newImageFileName = req.file ? req.file.filename : null;
+    // Ambil URL Cloudinary dari custom middleware
+    const newImageUrl = req.coverUrl || null;
+    const newAttachmentUrl = req.attachmentUrl || null;
+
+    console.log('📝 [UPDATE BOOK] Request:', { 
+        bookId, 
+        title, 
+        lampiran, 
+        hasNewImage: !!newImageUrl, 
+        hasNewAttachment: !!newAttachmentUrl 
+    });
 
     if (!title || !kodeBuku || !author || !totalStock || !category || !location) {
-         // Jika validasi gagal, hapus file yang sudah terupload
-        if (newImageFileName) await deleteOldImage(newImageFileName); 
         return res.status(400).json({ message: 'Semua field wajib diisi, termasuk Kode Buku dan Lokasi.' });
     }
     
@@ -161,53 +228,98 @@ exports.updateBook = async (req, res) => {
         // 1. Cek duplikasi Kode Buku (kecuali untuk buku ini sendiri)
         const [duplicate] = await connection.query('SELECT id FROM books WHERE kodeBuku = ? AND id != ?', [kodeBuku, bookId]);
         if (duplicate.length > 0) {
-            if (newImageFileName) await deleteOldImage(newImageFileName);
             await connection.rollback();
             return res.status(400).json({ message: 'Kode Buku sudah digunakan oleh buku lain.' });
         }
         
-        // 2. Ambil Stok Lama & Available Stock Lama
-        const [oldBook] = await connection.query('SELECT totalStock, availableStock, image_url FROM books WHERE id = ?', [bookId]);
+        // 2. Ambil data lama
+        const [oldBook] = await connection.query('SELECT totalStock, availableStock, image_url, attachment_url FROM books WHERE id = ?', [bookId]);
         if (oldBook.length === 0) {
-            if (newImageFileName) await deleteOldImage(newImageFileName);
             await connection.rollback();
             return res.status(404).json({ message: 'Buku tidak ditemukan.' });
         }
-        const { totalStock: oldTotalStock, availableStock: oldAvailableStock, image_url: oldImageFileName } = oldBook[0];
+        const { totalStock: oldTotalStock, availableStock: oldAvailableStock, image_url: oldImageUrl, attachment_url: oldAttachmentUrl } = oldBook[0];
         
         const newTotalStock = parseInt(totalStock);
         const stockDifference = newTotalStock - oldTotalStock;
         const newAvailableStock = oldAvailableStock + stockDifference;
 
         if (newAvailableStock < 0) {
-             if (newImageFileName) await deleteOldImage(newImageFileName);
             await connection.rollback();
             return res.status(400).json({ message: 'Stok tersedia tidak boleh negatif. Pastikan total stok baru minimal sama dengan jumlah buku yang sedang dipinjam.' });
         }
         
-        // Tentukan nama file yang akan disimpan
-        let finalImageFileName = oldImageFileName;
-        if (newImageFileName) {
-            // Ada upload baru, hapus gambar lama
-            if (oldImageFileName) await deleteOldImage(oldImageFileName);
-            finalImageFileName = newImageFileName;
-        } 
+        // Tentukan URL yang akan disimpan (gunakan yang baru jika ada, jika tidak gunakan yang lama)
+        const finalImageUrl = newImageUrl || oldImageUrl;
+        const finalAttachmentUrl = newAttachmentUrl || oldAttachmentUrl;
         
-        // 3. Update data buku
-        const [result] = await connection.query(
-            'UPDATE books SET title = ?, kodeBuku = ?, author = ?, publisher = ?, publicationYear = ?, totalStock = ?, availableStock = ?, category = ?, image_url = ?, description = ?, location = ? WHERE id = ?',
-            [title, kodeBuku, author, publisher || null, publicationYear || null, newTotalStock, newAvailableStock, category, finalImageFileName, description || null, location, bookId]
-        );
+        // 3. Dynamically check which columns exist in the books table
+        const [columns] = await connection.query(`
+            SELECT COLUMN_NAME 
+            FROM INFORMATION_SCHEMA.COLUMNS 
+            WHERE TABLE_SCHEMA = DATABASE() 
+            AND TABLE_NAME = 'books'
+        `);
+        const existingColumns = columns.map(col => col.COLUMN_NAME);
+        
+        // Build dynamic update query
+        const updates = [
+            'title = ?', 'kodeBuku = ?', 'author = ?', 'publisher = ?', 'publicationYear = ?',
+            'totalStock = ?', 'availableStock = ?', 'category = ?', 'image_url = ?',
+            'description = ?', 'location = ?'
+        ];
+        const values = [
+            title, kodeBuku, author, publisher || null, publicationYear || null,
+            newTotalStock, newAvailableStock, category, finalImageUrl,
+            description || null, location
+        ];
+        
+        // Add optional columns if they exist
+        if (existingColumns.includes('programStudi')) {
+            updates.push('programStudi = ?');
+            values.push(programStudi || null);
+        }
+        if (existingColumns.includes('bahasa')) {
+            updates.push('bahasa = ?');
+            values.push(bahasa || 'Bahasa Indonesia');
+        }
+        if (existingColumns.includes('jenisKoleksi')) {
+            updates.push('jenisKoleksi = ?');
+            values.push(jenisKoleksi || 'Buku Asli');
+        }
+        if (existingColumns.includes('lampiran')) {
+            updates.push('lampiran = ?');
+            values.push(lampiran || 'Tidak Ada');
+        }
+        if (existingColumns.includes('attachment_url')) {
+            updates.push('attachment_url = ?');
+            values.push(finalAttachmentUrl);
+        }
+        if (existingColumns.includes('pemusatanMateri')) {
+            updates.push('pemusatanMateri = ?');
+            values.push(pemusatanMateri || null);
+        }
+        if (existingColumns.includes('pages')) {
+            updates.push('pages = ?');
+            values.push(pages || null);
+        }
+        
+        values.push(bookId); // WHERE id = ?
+        
+        const updateQuery = `UPDATE books SET ${updates.join(', ')} WHERE id = ?`;
+        console.log('📊 [UPDATE BOOK] SQL:', updateQuery);
+        console.log('📊 [UPDATE BOOK] Values:', values);
+
+        const [result] = await connection.query(updateQuery, values);
 
         await connection.commit();
+        console.log('✅ [UPDATE BOOK] Success! Book ID:', bookId);
         res.json({ success: true, message: 'Buku berhasil diperbarui.' });
 
     } catch (error) {
         if (connection) await connection.rollback();
-        // Jika ada error, hapus file baru jika ada
-        if (newImageFileName) await deleteOldImage(newImageFileName);
-        console.error('❌ Error updating book:', error);
-        res.status(500).json({ message: 'Gagal memperbarui buku.' });
+        console.error('❌ [UPDATE BOOK] Error:', error);
+        res.status(500).json({ message: 'Gagal memperbarui buku.', error: error.message });
     } finally {
         if (connection) connection.release();
     }

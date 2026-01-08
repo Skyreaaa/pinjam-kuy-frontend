@@ -1,3 +1,4 @@
+require('dotenv').config();
 // File: routes/loanRoutes.js (FULL CODE FIXED)
 
 const express = require('express');
@@ -6,7 +7,8 @@ const jwt = require('jsonwebtoken');
 const loanController = require('../controllers/loanController'); 
 
 // --- Middleware Otentikasi Pengguna & Admin ---
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret_key_default'; 
+if (!process.env.JWT_SECRET) { throw new Error('JWT_SECRET wajib di-set di .env!'); }
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const authenticateUser = (req, res, next) => {
     const authHeader = req.headers.authorization;
@@ -31,6 +33,9 @@ router.use(authenticateUser);
 // Rute: POST /api/loans/request - Meminta Pinjaman
 router.post('/request', loanController.requestLoan);
 
+// Rute: POST /api/loans/:id/cancel - Batalkan Peminjaman
+router.post('/:id/cancel', loanController.cancelLoan);
+
 // Rute: GET /api/loans/user-history - Riwayat Pinjaman User (lengkap)
 router.get('/user-history', loanController.getUserLoanHistory); 
 
@@ -38,8 +43,8 @@ router.get('/user-history', loanController.getUserLoanHistory);
 router.get('/user', loanController.getUserLoans);
 
 // Rute: POST /api/loans/ready-to-return/:id - Menandai buku siap dikembalikan
-const upload = require('../middleware/upload');
-router.post('/ready-to-return/:id', upload.single('proofPhoto'), loanController.markAsReadyToReturn); 
+const { uploadReturnProof } = require('../middleware/upload');
+router.post('/ready-to-return/:id', uploadReturnProof.single('proofPhoto'), loanController.markAsReadyToReturn);
 
 // Notifikasi approval (user login kapan saja tetap dapat)
 router.get('/notifications', loanController.getApprovalNotifications);
@@ -52,6 +57,16 @@ router.get('/rejection-notifications', loanController.getRejectionNotifications)
 router.post('/rejection-notifications/ack', loanController.ackRejectionNotifications);
 // Riwayat notifikasi (pinjaman & pengembalian)
 router.get('/notifications/history', loanController.getNotificationHistory);
+
+// Rute: POST /api/loans/submit-fine-payment - Submit pembayaran denda
+const { uploadFineProof } = require('../middleware/upload');
+router.post('/submit-fine-payment', uploadFineProof.single('proof'), loanController.submitFinePayment);
+
+// Rute: GET /api/loans/payment-history - Get payment history for user
+router.get('/payment-history', loanController.getPaymentHistory);
+
+// Rute: GET /api/loans/user-loans - Get all user loans (untuk FinePaymentPage)
+router.get('/user-loans', loanController.getUserLoans);
 
 
 module.exports = router;

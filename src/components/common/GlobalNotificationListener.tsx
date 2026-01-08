@@ -1,6 +1,19 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { loanApi } from '../../services/api';
 import NotificationToast from './NotificationToast';
+import { getSocket, connectSocket, disconnectSocket } from '../../services/socket';
+
+// Helper: show browser notification
+function showWebNotification(title: string, options?: NotificationOptions) {
+  if (window.Notification && Notification.permission === 'granted') {
+    try {
+      const n = new Notification(title, options);
+      // Optionally, close after a few seconds
+      setTimeout(() => n.close(), 6000);
+    } catch {}
+  }
+}
 
 interface LoanSnapshot {
   id: number;
@@ -10,10 +23,64 @@ interface LoanSnapshot {
 }
 
 const GlobalNotificationListener: React.FC = () => {
+    // Check if user is admin - skip loan notifications for admin
+    const userDataStr = sessionStorage.getItem('userData');
+    const isAdmin = React.useMemo(() => {
+      if (!userDataStr) return false;
+      try {
+        const data = JSON.parse(userDataStr);
+        return data.role === 'admin';
+      } catch {
+        return false;
+      }
+    }, [userDataStr]);
+
+    // --- SOCKET.IO NOTIF LISTENER + Web Notification Permission ---
+    useEffect(() => {
+      // Request notification permission on mount
+      if (window.Notification && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+
+      // Ambil userId dan role dari localStorage
+      const userDataStr = sessionStorage.getItem('userData');
+      let userId: number | undefined = undefined;
+      let role: string | undefined = undefined;
+      if (userDataStr) {
+        try {
+          const data = JSON.parse(userDataStr);
+          userId = data.id;
+          role = data.role;
+        } catch {}
+      }
+      if (!userId || !role) return;
+      connectSocket(userId, role);
+      const socket = getSocket();
+      const handler = (notif: any) => {
+        // notif: { message, type, is_broadcast? }
+        if (window.Notification && Notification.permission === 'granted') {
+          showWebNotification('Pinjam Kuy', {
+            body: notif.message || 'Notifikasi baru',
+            icon: '/Logo-nobg.png',
+            tag: 'pinjam-kuy-broadcast',
+          });
+        } else {
+          setToast({ message: notif.message || 'Notifikasi baru', type: notif.type || 'info' });
+        }
+      };
+      socket.on('notification', handler);
+      return () => {
+        socket.off('notification', handler);
+        disconnectSocket();
+      };
+    }, []);
   const prevLoansRef = useRef<Record<number, LoanSnapshot>>({});
   const [toast, setToast] = useState<{ message: string; type: 'success'|'error'|'info' }|null>(null);
 
   useEffect(() => {
+    // Skip loan polling for admin users
+    if (isAdmin) return;
+
     const tick = async () => {
       try {
         // Loan approvals (poll every tick, dedupe by id)
@@ -148,7 +215,7 @@ const GlobalNotificationListener: React.FC = () => {
     const interval = setInterval(tick, 3000);
     tick();
     return () => clearInterval(interval);
-  }, []);
+  }, [isAdmin]);
 
   return (
     <>

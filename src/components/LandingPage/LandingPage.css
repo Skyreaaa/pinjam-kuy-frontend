@@ -1,3 +1,82 @@
+/* Sidebar Drawer Mobile */
+.nav-hamburger {
+  background: none;
+  border: none;
+  color: #2c3e50;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 0.5rem;
+  z-index: 1201;
+}
+
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.25);
+  z-index: 1200;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.sidebar-drawer {
+  width: 240px;
+  max-width: 80vw;
+  height: 100vh;
+  background: #fff;
+  box-shadow: 2px 0 16px rgba(0,0,0,0.10);
+  padding: 1.2rem 1rem 1rem 1.2rem;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  animation: sidebarSlideIn 0.25s cubic-bezier(.4,0,.2,1);
+}
+
+@keyframes sidebarSlideIn {
+  from { transform: translateX(-100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.sidebar-close {
+  background: none;
+  border: none;
+  color: #2c3e50;
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  cursor: pointer;
+  z-index: 1202;
+}
+
+.sidebar-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  margin-top: 2.5rem;
+}
+
+.sidebar-menu .nav-link {
+  background: none;
+  border: none;
+  color: #2c3e50;
+  font-size: 1.05rem;
+  font-weight: 600;
+  text-align: left;
+  padding: 0.5rem 0;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.sidebar-menu .nav-link:hover {
+  color: #3b82f6;
+}
+.sidebar-menu .btn-login {
+  margin-top: 1.5rem;
+  width: 100%;
+}
 /* Responsive grid for buku populer */
 .books-grid-responsive {
   display: grid;
@@ -9,9 +88,16 @@
 .book-grid-item {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
+  margin-bottom: 0; /* Adjusted margin-bottom for navbar spacing */
 }
 /* Landing Page - Professional Design */
+@media (max-width: 768px) {
+  .info-hero-banner {
+    margin-top: 60px; /* Added margin-top for mobile */
+    padding-top: 2.5rem;
+    padding-bottom: 2rem; /* Added padding-bottom for mobile */
+  }
+}
 * {
   margin: 0;
   padding: 0;
@@ -44,6 +130,13 @@
   backdrop-filter: blur(10px);
   box-shadow: 0 2px 20px rgba(0, 0, 0, 0.05);
   transition: all 0.3s ease;
+}
+
+.landing-header.hide-navbar {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s cubic-bezier(.4,0,.2,1);
+  will-change: opacity;
 }
 
 .landing-header.scrolled {

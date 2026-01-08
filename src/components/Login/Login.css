@@ -88,16 +88,26 @@ body, html {
 .login-card {
   position: relative;
   z-index: 1;
-  background-color: rgba(255, 255, 255, 0.95);
+  background-color: rgba(255, 255, 255, 0.97);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-  border-radius: 20px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-  padding: 28px 25px;
-  max-width: 350px;
-  width: 90%;
+  border-radius: 18px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.13);
+  padding: 22px 18px 24px 18px;
+  max-width: 340px;
+  width: 100%;
+  min-width: 260px;
   text-align: center;
-  transition: all 0.3s ease;
+  margin: 0 auto;
+  transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+
+@media (max-width: 600px) {
+  .login-card {
+    max-width: 96vw;
+    min-width: 0;
+    padding: 16px 4vw 18px 4vw;
+  }
 }
 
 .login-header {

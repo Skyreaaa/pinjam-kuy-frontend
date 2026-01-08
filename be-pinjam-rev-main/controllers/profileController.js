@@ -52,41 +52,30 @@ exports.updateBiodata = async (req, res) => {
 
 
 // 2. POST /api/profile/upload-photo (FIXED Non-Dummy)
+const { uploadProfile } = require('../middleware/upload');
+
 exports.uploadPhoto = [
-    upload.single('profile_photo'), 
+    uploadProfile.single('profile_photo'),
     async (req, res) => {
         const pool = req.app.get('dbPool');
         const { npm } = req.userData;
-        
         if (!req.file) {
             return res.status(400).json({ success: false, message: 'File foto tidak ditemukan atau melebihi batas 5MB.' });
         }
-        
-        const newPhotoPath = `/uploads/${req.file.filename}`;
-        
+        // Cloudinary: req.file.path = url
+        const photoUrl = req.file.path;
         try {
-            const [oldRows] = await pool.query('SELECT profile_photo_url FROM users WHERE npm = ?', [npm]);
-            const oldPhotoUrl = oldRows[0]?.profile_photo_url;
-
-            const [result] = await pool.query(
+            await pool.query(
                 'UPDATE users SET profile_photo_url = ? WHERE npm = ?',
-                [newPhotoPath, npm]
+                [photoUrl, npm]
             );
-
-            if (result.affectedRows > 0 && oldPhotoUrl) {
-                const oldPhotoPath = path.join(__dirname, '..', oldPhotoUrl);
-                await deleteFile(oldPhotoPath);
-            }
-
             res.status(200).json({
                 success: true,
                 message: 'Foto berhasil diunggah dan disimpan!',
-                profile_photo_url: newPhotoPath,
+                profile_photo_url: photoUrl,
             });
-            
         } catch (error) {
             console.error('Error during photo upload/update:', error);
-            await deleteFile(req.file.path); 
             res.status(500).json({ success: false, message: 'Gagal mengunggah foto.' });
         }
     }

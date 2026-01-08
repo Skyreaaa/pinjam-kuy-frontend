@@ -1,5 +1,8 @@
 // File: components/Profile/Profile.tsx 
 import React, { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
+import Cropper from 'react-easy-crop';
+import { Area } from 'react-easy-crop/types';
 import QRCodeDisplay from '../common/QRCodeDisplay';
 import {
   FaArrowLeft,
@@ -28,6 +31,7 @@ interface ProfileProps {
     profile_photo_url?: string | null;
   };
   profilePhoto: string | null;
+  setProfilePhoto: (url: string) => void;
   onPhotoUpdate: (photo: File | null, npm: string, onComplete: (success: boolean, message: string) => void) => void; 
   onProfileSave: (updatedData: any) => Promise<{ success: boolean; message: string }>; 
   onBack: () => void;
@@ -80,35 +84,107 @@ interface CropModalProps {
     onCancel: () => void;
 }
 
+const createImage = (url: string): Promise<HTMLImageElement> => {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image();
+    img.addEventListener('load', () => resolve(img));
+    img.addEventListener('error', error => reject(error));
+    img.setAttribute('crossOrigin', 'anonymous');
+    img.src = url;
+  });
+};
+
+async function getCroppedImg(imageSrc: string, crop: Area, fileName: string, fileType: string): Promise<File> {
+  const image = await createImage(imageSrc);
+  const canvas = document.createElement('canvas');
+  canvas.width = crop.width;
+  canvas.height = crop.height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('No 2d context');
+  ctx.drawImage(
+    image,
+    crop.x,
+    crop.y,
+    crop.width,
+    crop.height,
+    0,
+    0,
+    crop.width,
+    crop.height
+  );
+  return new Promise<File>((resolve, reject) => {
+    canvas.toBlob(blob => {
+      if (blob) {
+        resolve(new File([blob], fileName, { type: fileType }));
+      } else {
+        reject(new Error('Canvas is empty'));
+      }
+    }, fileType);
+  });
+}
+
 const CropModal: React.FC<CropModalProps> = ({ fileToCrop, onCropComplete, onCancel }) => {
-    
-    const handleSimulatedCrop = () => {
-        if (fileToCrop) {
-            onCropComplete(fileToCrop);
-        }
-    };
-    
-    return (
-        <div className="modal-backdrop">
-            <div className="modal-content crop-modal">
-                <h3>Potong Foto</h3>
-                <div className="crop-area">
-                    {fileToCrop && <img src={URL.createObjectURL(fileToCrop)} alt="Preview" className="crop-preview-image" />}
-                </div>
-                <div className="modal-actions">
-                    <button onClick={onCancel} className="btn-cancel">Batal</button>
-                    {/* Menggunakan class btn-confirm untuk diwarnai di CSS */}
-                    <button onClick={handleSimulatedCrop} className="btn-confirm">Potong & Unggah</button>
-                </div>
-            </div>
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (fileToCrop) {
+      setImageUrl(URL.createObjectURL(fileToCrop));
+    }
+  }, [fileToCrop]);
+
+  const onCropCompleteHandler = (_: Area, croppedAreaPixels: Area) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  };
+
+  const handleCrop = async () => {
+    if (!imageUrl || !croppedAreaPixels || !fileToCrop) return;
+    const croppedFile = await getCroppedImg(imageUrl, croppedAreaPixels, fileToCrop.name, fileToCrop.type);
+    onCropComplete(croppedFile);
+  };
+
+  return (
+    <div className="modal-backdrop">
+      <div className="modal-content crop-modal">
+        <h3>Potong Foto</h3>
+        <div className="crop-area" style={{ position: 'relative', width: 300, height: 300, background: '#333', margin: '0 auto' }}>
+          {imageUrl && (
+            <Cropper
+              image={imageUrl}
+              crop={crop}
+              zoom={zoom}
+              aspect={1}
+              onCropChange={setCrop}
+              onZoomChange={setZoom}
+              onCropComplete={onCropCompleteHandler}
+            />
+          )}
         </div>
-    );
+        <div style={{ display: 'flex', justifyContent: 'center', margin: '10px 0' }}>
+          <input
+            type="range"
+            min={1}
+            max={3}
+            step={0.01}
+            value={zoom}
+            onChange={e => setZoom(Number(e.target.value))}
+            style={{ width: 200 }}
+          />
+        </div>
+        <div className="modal-actions">
+          <button onClick={onCancel} className="btn-cancel">Batal</button>
+          <button onClick={handleCrop} className="btn-confirm">Potong & Unggah</button>
+        </div>
+      </div>
+    </div>
+  );
 };
 // --- END MODAL DEFINITIONS ---
 
 
 const Profile: React.FC<ProfileProps> = ({
-  userData, profilePhoto, onPhotoUpdate, onProfileSave, onBack, onDeletePhoto,
+  userData, profilePhoto, setProfilePhoto, onPhotoUpdate, onProfileSave, onBack, onDeletePhoto,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedUsername, setEditedUsername] = useState(userData.username || '');
@@ -121,6 +197,8 @@ const Profile: React.FC<ProfileProps> = ({
   const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
   const [showCropModal, setShowCropModal] = useState(false);
   const [fileToCrop, setFileToCrop] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Update URL untuk profile page
@@ -185,20 +263,53 @@ const Profile: React.FC<ProfileProps> = ({
         }
     };
     
-    const handleCropAndUpload = (croppedFile: File) => {
-        setShowCropModal(false);
-        setNotification(null);
-        if (fileInputRef.current) fileInputRef.current.value = ''; 
-        
-        onPhotoUpdate(croppedFile, userData.npm || '', (success, message) => {
-            if (success) {
-                setNotification({ type: 'success', title: 'Berhasil! Sip!', message: message });
-            } else {
-                setNotification({ type: 'error', title: 'Gagal!', message: message });
+    const handleCropAndUpload = async (croppedFile: File) => {
+      setShowCropModal(false);
+      setNotification(null);
+      setIsUploading(true);
+      setUploadProgress(0);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      try {
+        const fd = new FormData();
+        fd.append('profile_photo', croppedFile);
+        const token = sessionStorage.getItem('token');
+        const resp = await axios.post(
+          `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/profile/upload-photo`,
+          fd,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+            onUploadProgress: (progressEvent) => {
+              if (progressEvent.total) {
+                setUploadProgress(Math.round((progressEvent.loaded * 100) / progressEvent.total));
+              }
             }
-        });
-        
-        setFileToCrop(null);
+          }
+        );
+        setIsUploading(false);
+        setUploadProgress(0);
+        if (resp.data && resp.data.success && resp.data.profile_photo_url) {
+          setNotification({ type: 'success', title: 'Berhasil! Sip!', message: resp.data.message });
+          setProfilePhoto(resp.data.profile_photo_url);
+          // Update localStorage userData jika ada
+          const userDataStr = sessionStorage.getItem('userData');
+          if (userDataStr) {
+            try {
+            const userDataObj = JSON.parse(userDataStr);
+            userDataObj.profile_photo_url = resp.data.profile_photo_url;
+            sessionStorage.setItem('userData', JSON.stringify(userDataObj));
+            } catch {}
+          }
+        } else {
+          setNotification({ type: 'error', title: 'Gagal!', message: resp.data.message || 'Gagal upload foto.' });
+        }
+      } catch (e) {
+        setIsUploading(false);
+        setUploadProgress(0);
+        setNotification({ type: 'error', title: 'Gagal!', message: 'Gagal upload foto.' });
+      }
+      setFileToCrop(null);
     };
     
     const handleCancelCrop = () => {
@@ -232,10 +343,18 @@ const Profile: React.FC<ProfileProps> = ({
       </header>
       
       <div className="profile-content">
+        {isUploading && (
+          <div className="upload-progress-bar" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 9999, background: 'rgba(255,255,255,0.7)' }}>
+            <div className="progress-label" style={{ fontWeight: 'bold', marginBottom: 10 }}>Mengunggah foto... {uploadProgress}%</div>
+            <div className="progress-bar-bg" style={{ width: 300, height: 20, background: '#eee', borderRadius: 10, overflow: 'hidden' }}>
+              <div className="progress-bar-fill" style={{ width: `${uploadProgress}%`, height: '100%', background: '#4caf50', transition: 'width 0.2s' }}></div>
+            </div>
+          </div>
+        )}
         <div className="profile-card">
           <div className="profile-photo-section">
             <img 
-              src={profilePhoto || defaultAvatar}
+              src={profilePhoto && !profilePhoto.startsWith('data:image') ? profilePhoto : (userData.profile_photo_url && !userData.profile_photo_url.startsWith('data:image') ? userData.profile_photo_url : defaultAvatar)}
               alt="Foto Profil"
               className="profile-photo"
             />
