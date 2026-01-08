@@ -651,44 +651,35 @@ app.get('/api/debug/loan-columns', async (req, res) => {
 
 // --- 5. Jalankan Server dengan Fallback Port Dinamis ---
 
-// Check if running on Vercel serverless
-const isVercel = process.env.VERCEL || process.env.NOW_REGION;
+function startServer(port, attempt = 1, maxAttempts = 8) {
+    const s = server.listen(port, () => {
+        console.log(`🚀 Server berjalan di http://localhost:${port}`);
+        if (!process.env.PORT && port !== INITIAL_PORT) {
+            console.log(`ℹ️  Menggunakan port alternatif karena port ${INITIAL_PORT} sedang dipakai.`);
+        }
+    });
 
-if (!isVercel) {
-    // Local development - start HTTP server normally
-    function startServer(port, attempt = 1, maxAttempts = 8) {
-        const s = server.listen(port, () => {
-            console.log(`🚀 Server berjalan di http://localhost:${port}`);
-            if (!process.env.PORT && port !== INITIAL_PORT) {
-                console.log(`ℹ️  Menggunakan port alternatif karena port ${INITIAL_PORT} sedang dipakai.`);
-            }
-        });
-
-        s.on('error', (err) => {
-            if (err.code === 'EADDRINUSE') {
-                if (process.env.PORT) {
-                    console.error(`❌ Port ${port} (dari ENV) sudah dipakai. Silakan kosongkan port atau ubah variabel PORT.`);
-                    process.exit(1);
-                } else if (attempt < maxAttempts) {
-                    const nextPort = port + 1;
-                    console.warn(`⚠️  Port ${port} dipakai. Mencoba port ${nextPort} (percobaan ${attempt + 1}/${maxAttempts})...`);
-                    setTimeout(() => startServer(nextPort, attempt + 1, maxAttempts), 200);
-                } else {
-                    console.error(`❌ Gagal menemukan port kosong setelah ${maxAttempts} percobaan.`);
-                    process.exit(1);
-                }
+    s.on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+            if (process.env.PORT) {
+                console.error(`❌ Port ${port} (dari ENV) sudah dipakai. Silakan kosongkan port atau ubah variabel PORT.`);
+                process.exit(1);
+            } else if (attempt < maxAttempts) {
+                const nextPort = port + 1;
+                console.warn(`⚠️  Port ${port} dipakai. Mencoba port ${nextPort} (percobaan ${attempt + 1}/${maxAttempts})...`);
+                setTimeout(() => startServer(nextPort, attempt + 1, maxAttempts), 200);
             } else {
-                console.error('❌ Error saat menjalankan server:', err);
+                console.error(`❌ Gagal menemukan port kosong setelah ${maxAttempts} percobaan.`);
                 process.exit(1);
             }
-        });
-    }
-
-    startServer(INITIAL_PORT);
-} else {
-    // Vercel serverless - export app for handler
-    console.log('🚀 Running on Vercel serverless environment');
+        } else {
+            console.error('❌ Error saat menjalankan server:', err);
+            process.exit(1);
+        }
+    });
 }
+
+startServer(INITIAL_PORT);
 
 // Pastikan kolom & isi kodePinjam dibangkitkan untuk semua baris lama setelah startup
 async function ensureLoanKodePinjam(pool){
@@ -889,6 +880,3 @@ process.on('uncaughtException', (error) => {
     console.error('❌ Uncaught Exception:', error);
     process.exit(1);
 });
-
-// Export app for Vercel serverless
-module.exports = app;
