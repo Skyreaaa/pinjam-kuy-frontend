@@ -386,20 +386,25 @@ export default function BorrowingPage({ userData, onBack }: BorrowingPageProps) 
       <div className="borrowing-page-container-v5">
         {/* Header dengan tombol back ke home dan FaList ke loans */}
         <div className="borrowing-header-v5">
-          <div className="header-top-v5" style={{display:'flex',justifyContent:'space-between',alignItems:'center',margin:0,padding:0}}>
+          <div className="header-top-v5" style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            width: '100%',
+            padding: '0 16px',
+            boxSizing: 'border-box'
+          }}>
             <button
               className="back-button-v5"
               onClick={() => navigate('/home')}
               title="Kembali ke Home"
-              style={{margin:0,padding:0,alignSelf:'flex-start'}}
             >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
             </button>
             <button
-              className="back-button-v5"
+              className="loans-button-v5"
               onClick={() => navigate('/loans')}
               title="Lihat Pinjaman Saya"
-              style={{margin:0,padding:0,alignSelf:'flex-start'}}
             >
               <FaList />
             </button>

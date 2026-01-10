@@ -170,7 +170,7 @@ const Home: React.FC<HomeProps> = ({
     <div className="home-container">
       <header className="home-header">
         <div className="logo-container">
-          <img src="/Logo.png" alt="Logo" className="logo" />
+          <img src="/logo-nobg.png" alt="Logo" className="logo" />
           <span className="app-name">PinjamKuy</span>
         </div>
         <button
@@ -198,7 +198,7 @@ const Home: React.FC<HomeProps> = ({
           <button className="dropdown-item" onClick={() => {
             navigate('/fines');
             setMenuOpen(false);
-          }}>💰 Bayar Denda</button>
+          }}>Bayar Denda</button>
           <button className="dropdown-item" onClick={() => {
             onMenuClick('notification-history');
             setMenuOpen(false);

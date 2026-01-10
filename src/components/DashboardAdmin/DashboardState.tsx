@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Pie } from 'react-chartjs-2';
+import { Pie, Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -10,7 +10,8 @@ import {
   Legend,
   ArcElement,
   PointElement,
-  LineElement
+  LineElement,
+  Filler
 } from 'chart.js';
 import axios from 'axios';
 import './DashboardState.css';
@@ -28,7 +29,8 @@ ChartJS.register(
   Legend,
   ArcElement,
   PointElement,
-  LineElement
+  LineElement,
+  Filler
 );
 
 
@@ -114,6 +116,88 @@ const DashboardState: React.FC = () => {
   const returnTrend = monthlyActivity.returns.map((item: any) => item.returnCount);
   const fineTrend = stats.fineTrends || Array(monthLabels.length).fill(stats.totalFines || 0);
 
+  // Data untuk multi-line chart (semua tren dalam satu chart)
+  const multiLineData = {
+    labels: monthLabels,
+    datasets: [
+      {
+        label: 'User',
+        data: userTrend,
+        borderColor: '#4e73df',
+        backgroundColor: 'rgba(78, 115, 223, 0.1)',
+        tension: 0.4,
+        fill: true
+      },
+      {
+        label: 'Buku',
+        data: bookTrend,
+        borderColor: '#1cc88a',
+        backgroundColor: 'rgba(28, 200, 138, 0.1)',
+        tension: 0.4,
+        fill: true
+      },
+      {
+        label: 'Peminjaman',
+        data: loanTrend,
+        borderColor: '#36b9cc',
+        backgroundColor: 'rgba(54, 185, 204, 0.1)',
+        tension: 0.4,
+        fill: true
+      },
+      {
+        label: 'Pengembalian',
+        data: returnTrend,
+        borderColor: '#f6c23e',
+        backgroundColor: 'rgba(246, 194, 62, 0.1)',
+        tension: 0.4,
+        fill: true
+      },
+      {
+        label: 'Denda',
+        data: fineTrend,
+        borderColor: '#e74a3b',
+        backgroundColor: 'rgba(231, 74, 59, 0.1)',
+        tension: 0.4,
+        fill: true
+      }
+    ]
+  };
+
+  const multiLineOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top' as const,
+        labels: {
+          usePointStyle: true,
+          padding: 15
+        }
+      },
+      title: {
+        display: true,
+        text: 'Tren Data Sistem',
+        font: {
+          size: 16,
+          weight: 'bold' as const
+        }
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+        grid: {
+          color: 'rgba(0, 0, 0, 0.05)'
+        }
+      },
+      x: {
+        grid: {
+          display: false
+        }
+      }
+    }
+  };
+
   return (
     <div className="dashboard-state-page">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
@@ -134,25 +218,8 @@ const DashboardState: React.FC = () => {
           <h3>Pie Chart Komposisi Data</h3>
           <Pie data={pieData} />
         </div>
-        <div className="chart-container">
-          <h3>Tren User</h3>
-          <SingleLineChart label="User" color="#4e73df" data={userTrend} labels={monthLabels} />
-        </div>
-        <div className="chart-container">
-          <h3>Tren Buku</h3>
-          <SingleLineChart label="Buku" color="#1cc88a" data={bookTrend} labels={monthLabels} />
-        </div>
-        <div className="chart-container">
-          <h3>Tren Peminjaman</h3>
-          <SingleLineChart label="Peminjaman" color="#36b9cc" data={loanTrend} labels={monthLabels} />
-        </div>
-        <div className="chart-container">
-          <h3>Tren Pengembalian</h3>
-          <SingleLineChart label="Pengembalian" color="#f6c23e" data={returnTrend} labels={monthLabels} />
-        </div>
-        <div className="chart-container">
-          <h3>Tren Denda</h3>
-          <SingleLineChart label="Denda" color="#e74a3b" data={fineTrend} labels={monthLabels} />
+        <div className="chart-container" style={{ width: '100%', minHeight: '400px' }}>
+          <Line data={multiLineData} options={multiLineOptions} />
         </div>
       </div>
       <div className="extra-reports" style={{ display: 'flex', flexWrap: 'wrap', gap: 24, marginTop: 32 }}>

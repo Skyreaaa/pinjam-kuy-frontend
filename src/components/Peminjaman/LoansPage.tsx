@@ -388,7 +388,6 @@ const LoansPage: React.FC = () => {
 						{/* ACTION BUTTONS */}
 						<div style={{display: 'flex', gap: 12}}>
 							<button 
-								onClick={() => navigate('/fines')}
 								style={{ 
 									display: 'flex', 
 									alignItems: 'center', 
@@ -405,22 +404,6 @@ const LoansPage: React.FC = () => {
 								}}
 								onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
 								onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-							>
-								<FaMoneyBillWave /> Bayar Denda
-							</button>
-							<button 
-								onClick={fetchLoans} 
-								style={{ 
-									display: 'flex', 
-									alignItems: 'center', 
-									gap: 8, 
-									background: '#fff', 
-									border: '1px solid #ccc', 
-									borderRadius: 8, 
-									padding: '8px 16px', 
-									fontWeight: 500, 
-									cursor: 'pointer' 
-								}}
 							>
 								<FaSyncAlt /> Refresh
 							</button>

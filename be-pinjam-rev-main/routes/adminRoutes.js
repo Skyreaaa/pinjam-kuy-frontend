@@ -18,45 +18,6 @@ router.get('/stats/notification-stats', adminController.getNotificationStats);
 const UserNotification = require('../models/user_notifications');
 const pushController = require('../controllers/pushController');
 
-router.post('/broadcast', async (req, res) => {
-    const { message, type = 'info' } = req.body || {};
-    if (!message || typeof message !== 'string' || !message.trim()) {
-        return res.status(400).json({ success: false, message: 'Pesan broadcast tidak boleh kosong.' });
-    }
-    try {
-        const io = req.app.get('io');
-        // Simpan ke tabel user_notifications sebagai broadcast
-        await UserNotification.create({ user_id: null, type, message, is_broadcast: 1 });
-        
-        // Kirim Socket.IO notification
-        if (io) {
-            io.emit('notification', {
-                message,
-                type,
-                is_broadcast: true,
-            });
-        }
-        
-        // Kirim Push Notification ke semua user
-        try {
-            await pushController.sendPushToAllUsers({
-                title: 'Pemberitahuan',
-                message: message,
-                tag: 'broadcast',
-                data: { type: 'broadcast', is_broadcast: true },
-                requireInteraction: type === 'warning' || type === 'error'
-            });
-            console.log('✅ Push notification broadcast berhasil dikirim');
-        } catch (pushErr) {
-            console.warn('[PUSH][BROADCAST] Gagal kirim push notification:', pushErr.message);
-        }
-        
-        return res.json({ success: true });
-    } catch (err) {
-        console.error('[ADMIN][BROADCAST] Error:', err);
-        return res.status(500).json({ success: false, message: 'Gagal mengirim broadcast.' });
-    }
-});
 // File: routes/adminRoutes.js (FULL CODE FIXED)
 
 // --- Middleware Otentikasi Admin ---
@@ -90,6 +51,69 @@ const authenticateAdmin = (req, res, next) => {
 };
 
 router.use(authenticateAdmin);
+
+// Broadcast route (harus setelah authenticateAdmin)
+router.post('/broadcast', async (req, res) => {
+    console.log('📢 [BROADCAST] Received request:', req.body);
+    const { message, type = 'info', userIds } = req.body || {};
+    if (!message || typeof message !== 'string' || !message.trim()) {
+        return res.status(400).json({ success: false, message: 'Pesan broadcast tidak boleh kosong.' });
+    }
+    try {
+        const io = req.app.get('io');
+        console.log('📢 [BROADCAST] IO available:', !!io);
+        
+        // Jika ada userIds, kirim ke user tertentu saja
+        if (userIds && Array.isArray(userIds) && userIds.length > 0) {
+            console.log(`📢 [BROADCAST] Sending to ${userIds.length} specific users`);
+            // Simpan notifikasi untuk setiap user
+            for (const userId of userIds) {
+                await UserNotification.create({ user_id: userId, type, message, is_broadcast: 0 });
+                // Socket.IO ke user tertentu
+                if (io) {
+                    io.to(`user_${userId}`).emit('notification', {
+                        message,
+                        type,
+                        is_broadcast: false,
+                    });
+                }
+                // Push notification ke user tertentu
+                try {
+                    await pushController.sendPushNotification(userId, 'user', {
+                        title: 'Pemberitahuan',
+                        message: message,
+                        tag: 'notification',
+                        data: { type, is_broadcast: false },
+                        requireInteraction: type === 'warning' || type === 'error'
+                    });
+                } catch (pushErr) {
+                    console.warn(`[PUSH] Gagal kirim ke user ${userId}:`, pushErr.message);
+                }
+            }
+            console.log(`✅ Broadcast berhasil dikirim ke ${userIds.length} user`);
+        } else {
+            // Broadcast ke semua user
+            await UserNotification.create({ user_id: null, type, message, is_broadcast: 1 });
+            
+            // Kirim Socket.IO notification
+            if (io) {
+                io.emit('broadcast-notification', {
+                    title: 'Pemberitahuan',
+                    message,
+                    type,
+                    timestamp: new Date().toISOString()
+                });
+                console.log('✅ Socket.IO broadcast emitted (instant notification!)');
+            }
+        }
+        
+        return res.json({ success: true });
+    } catch (err) {
+        console.error('[ADMIN][BROADCAST] Error:', err);
+        return res.status(500).json({ success: false, message: 'Gagal mengirim broadcast.' });
+    }
+});
+
 
 // Approval pinjaman dinonaktifkan
 // router.get('/loans/pending', loanController.getPendingLoans); 

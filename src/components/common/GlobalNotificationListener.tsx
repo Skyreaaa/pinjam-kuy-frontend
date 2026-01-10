@@ -82,6 +82,13 @@ const GlobalNotificationListener: React.FC = () => {
     if (isAdmin) return;
 
     const tick = async () => {
+      // Check if user is logged in (has token)
+      const token = sessionStorage.getItem('token');
+      if (!token) {
+        // User not logged in, skip polling
+        return;
+      }
+
       try {
         // Loan approvals (poll every tick, dedupe by id)
         try {

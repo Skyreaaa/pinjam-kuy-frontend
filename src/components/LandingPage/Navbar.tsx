@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { FaBars, FaTimes } from 'react-icons/fa';
-import logoImg from '../../assets/Logo.png';
+import logoImg from '../../assets/Logo-nobg.png';
 import './LandingPage.css';
 
 interface NavbarProps {

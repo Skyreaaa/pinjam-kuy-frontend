@@ -12,6 +12,7 @@ dist/
 
 # --- Runtime & Generated Uploads (do not version) ---
 be-pinjam-master/uploads/
+be-pinjam-rev-main/
 
 # --- Tooling / Editor ---
 .vscode/

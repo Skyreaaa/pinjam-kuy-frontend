@@ -265,7 +265,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialView }) => {
                 <div>
                     <div className="admin-toolbar">
                         <button className="btn btn-primary" onClick={handleAddUser}>+ Tambah User</button>
-                        <button className="btn btn-secondary" onClick={handleScanQR}>Scan QR</button>
+                       
                     </div>
                     <AdminUsersPage onEditUser={handleEditUser} onDeleteUser={handleDeleteUser} users={users} loading={userLoading} error={userError} />
                 </div>

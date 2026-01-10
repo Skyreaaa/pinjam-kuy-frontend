@@ -146,6 +146,7 @@ const AdminBroadcastPage: React.FC = () => {
         <FaBullhorn size={32} color="#0056b3" />
         <h2 style={{margin:0}}>Broadcast Notifikasi ke Semua User</h2>
       </div>
+      
       <form onSubmit={handleSend} className="broadcast-form-card" style={{background:'#fff',borderRadius:12,padding:24,boxShadow:'0 2px 12px rgba(0,0,0,0.07)',marginBottom:32}}>
         <textarea
           value={message}

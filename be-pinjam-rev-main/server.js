@@ -41,7 +41,7 @@ const app = express();
 // Parse CORS_ORIGINS from environment variable (comma-separated)
 const allowedOrigins = process.env.CORS_ORIGINS 
     ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
-    : ['http://localhost:3000']; // Default for development
+    : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5000', 'http://localhost:5001']; // Default for development
 
 console.log('[CORS] Allowed origins:', allowedOrigins);
 
@@ -50,9 +50,15 @@ const corsOptions = {
         // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
         
+        // In development, allow all localhost origins
+        if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+            return callback(null, true);
+        }
+        
         if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
             callback(null, true);
         } else {
+            console.warn('[CORS] Blocked origin:', origin);
             callback(new Error('Not allowed by CORS'));
         }
     },

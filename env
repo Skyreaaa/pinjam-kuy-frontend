@@ -1,6 +1,0 @@
-# Expose CRA dev server on LAN for mobile access
-HOST=0.0.0.0
-
-# Let frontend auto-detect backend host based on the page URL for mobile use.
-# Comment out the hardcoded localhost to avoid pointing phone to its own localhost.
-REACT_APP_API_BASE_URL=http://localhost:5000/api
