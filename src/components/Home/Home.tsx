@@ -6,6 +6,7 @@ import { API_BASE_URL } from '../../config/api';
 import './Home.css';
 import characterImage from '../../assets/menyapa.png';
 import { FaBars, FaTimes } from 'react-icons/fa';
+import logoImg from '../../assets/Logo-nobg.png';
 import NotificationToast from '../common/NotificationToast';
 import PushNotificationPrompt from '../common/PushNotificationPrompt';
 import { useNavigate } from 'react-router-dom';
