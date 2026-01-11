@@ -247,12 +247,10 @@ const Home: React.FC<HomeProps> = ({
   <div className="info-card card late-fee clickable" onClick={() => { localStorage.setItem('initialBorrowTab','history'); localStorage.setItem('openLoansView','1'); onMenuClick('borrowing-page'); }}> 
           <div className="info-icon">💸</div>
           <p className="info-label">Denda Aktif</p>
-          <h2 className="info-value" title={`Denda Aktif yang dapat dibayar sekarang = Belum Dibayar (${formatRupiah(unpaidFine)})`}>
+          <h2 className="info-value" title={`Denda yang belum dibayar`}>
             {formatRupiah(unpaidFine)}
           </h2>
           <div className="fine-breakdown">
-            <div className="hidden"><span className="bd-label bd-running">Berjalan:</span> <span className="bd-val bd-running-val">{formatRupiah(runningFine)}</span></div>
-            <div><span className="bd-label bd-unpaid">Belum Dibayar:</span> <span className="bd-val bd-unpaid-val">{formatRupiah(unpaidFine)}</span></div>
             <div className="bd-total-hist"><span className="bd-label bd-historical">Total Historis:</span> <span className="bd-val bd-historical-val">{formatRupiah(historicalTotal)}</span></div>
             {(historicalTotal > 0 && unpaidFine === 0) && (
               <div className="bd-note">Semua denda sudah dilunasi.</div>
