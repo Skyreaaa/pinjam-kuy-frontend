@@ -71,10 +71,7 @@ const QRScanModal: React.FC<QRScanModalProps> = ({ isOpen, onClose, onScan, scan
   useEffect(() => {
     if (!isOpen || !selectedCameraId || !scannerRef.current) return;
     setErrorMsg(null);
-    // Selalu bersihkan child div sebelum inisialisasi baru
-    while (scannerRef.current.firstChild) {
-      try { scannerRef.current.removeChild(scannerRef.current.firstChild); } catch {}
-    }
+    
     // Stop/clear instance lama jika ada
     if (html5QrRef.current) {
       try { html5QrRef.current.stop(); } catch (e) {}
@@ -82,13 +79,18 @@ const QRScanModal: React.FC<QRScanModalProps> = ({ isOpen, onClose, onScan, scan
       html5QrRef.current = null;
       scannerRunningRef.current = false;
     }
+    
+    // Bersihkan DOM dengan cara yang lebih aman
+    if (scannerRef.current) {
+      scannerRef.current.innerHTML = '';
+    }
     html5QrRef.current = new Html5Qrcode(scannerRef.current.id);
     let isActive = true;
     scannerRunningRef.current = true;
     html5QrRef.current
       .start(
         { deviceId: selectedCameraId },
-        { fps: 15, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
+        { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0, timeout: 5000 },
         async (decodedText) => {
           if (isActive && scannerRunningRef.current) {
             // Jangan stop scanner, biarkan tetap berjalan untuk scan berikutnya
