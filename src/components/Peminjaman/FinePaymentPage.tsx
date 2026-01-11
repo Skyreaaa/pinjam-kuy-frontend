@@ -380,7 +380,7 @@ const FinePaymentPage: React.FC = () => {
                 <table className="fines-table">
                   <thead>
                     <tr>
-                      <th width="50">Pilih</th>
+                      <th style={{width: '50px'}}>Pilih</th>
                       <th>Kode Peminjaman</th>
                       <th>Judul Buku</th>
                       <th>Tanggal Pinjam</th>
