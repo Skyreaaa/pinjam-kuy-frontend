@@ -360,10 +360,11 @@ exports.markAsReadyToReturn = async (req, res) => {
 
     try {
         // Cek kepemilikan dan status pinjaman + kolom opsional
-        const [loans] = await pool.query(
-            "SELECT status, returnProofUrl FROM loans WHERE id =: AND user_id = $2",
+        const _pgResult = await pool.query(
+            "SELECT status, returnProofUrl FROM loans WHERE id = $1 AND user_id = $2",
             [loanId, userId]
         );
+        const loans = _pgResult.rows;
 
         if (loans.length === 0) {
             return res.status(404).json({ message: 'Pinjaman tidak ditemukan atau bukan milik Anda.' });
@@ -403,7 +404,7 @@ exports.markAsReadyToReturn = async (req, res) => {
 
         // Update status menjadi Siap Dikembalikan + set readyReturnDate + proof + metadata
         const result = await pool.query(
-            "UPDATE loans SET status = $1, readyReturnDate = $2, returnProofUrl = $3, returnProofMetadata =: WHERE id =: AND user_id = $6",
+            "UPDATE loans SET status = $1, readyReturnDate = $2, returnProofUrl = $3, returnProofMetadata = $4 WHERE id = $5 AND user_id = $6",
             ['Siap Dikembalikan', new Date(), proofUrl, metadata ? JSON.stringify(metadata) : null, loanId, userId]
         );
 
@@ -762,10 +763,11 @@ exports.processReturn = async (req, res) => {
         const actualReturnDate = new Date();
 
         // 1. Ambil data pinjaman untuk perhitungan denda otomatis
-        const [loanData] = await pool.query(
-            "SELECT l.expectedReturnDate, l.book_id, l.user_id, u.denda, b.title FROM loans l JOIN users u ON l.user_id = u.id JOIN books b ON l.book_id = b.id WHERE l.id =: AND l.status IN ($2, $3, $4)",
+        const _pgResult = await pool.query(
+            "SELECT l.expectedReturnDate, l.book_id, l.user_id, u.denda, b.title FROM loans l JOIN users u ON l.user_id = u.id JOIN books b ON l.book_id = b.id WHERE l.id = $1 AND l.status IN ($2, $3, $4)",
             [loanId, 'Sedang Dipinjam', 'Terlambat', 'Siap Dikembalikan']
         );
+        const loanData = _pgResult.rows;
 
         if (loanData.length === 0) {
             // No rollback
@@ -867,10 +869,11 @@ exports.rejectReturnProof = async (req, res) => {
         // No getConnection needed
         // No transactions for now
 
-        const [rows] = await pool.query(
-            `SELECT id, expectedReturnDate, status FROM loans WHERE id=$1 FOR UPDATE`,
+        const _pgResult = await pool.query(
+            `SELECT id, expectedReturnDate, status, user_id FROM loans WHERE id=$1`,
             [loanId]
         );
+        const rows = _pgResult.rows;
         if (!rows.length) {
             // No rollback
             return res.status(404).json({ message: 'Pinjaman tidak ditemukan.' });
@@ -895,11 +898,11 @@ exports.rejectReturnProof = async (req, res) => {
         let user_id = loan.user_id;
         if (fineAmount > 0) {
             await pool.query(
-                `UPDATE loans SET fineAmount = fineAmount +: WHERE id=$2`,
+                `UPDATE loans SET fineAmount = fineAmount + $1 WHERE id=$2`,
                 [fineAmount, loanId]
             );
             await pool.query(
-                `UPDATE users SET denda = denda + $1, denda_unpaid = denda_unpaid +: WHERE id = $3`,
+                `UPDATE users SET denda = denda + $1, denda_unpaid = denda_unpaid + $2 WHERE id = $3`,
                 [fineAmount, fineAmount, user_id]
             );
         }
@@ -909,10 +912,11 @@ exports.rejectReturnProof = async (req, res) => {
         // --- TRIGGER SOCKET.IO NOTIFIKASI USER: Bukti pengembalian ditolak ---
         try {
             // Ambil user_id dan judul buku
-            const [loanRows] = await pool.query(
+            const _pgLoanResult = await pool.query(
                 `SELECT l.user_id, b.title FROM loans l JOIN books b ON l.book_id = b.id WHERE l.id = $1`,
                 [loanId]
             );
+            const loanRows = _pgLoanResult.rows;
             if (loanRows.length) {
                 const { user_id, title } = loanRows[0];
                 const io = req.app.get('io');
@@ -1447,18 +1451,19 @@ exports.getReturnsForReview = async (req, res) => {
     try {
         const result = await pool.query(`
             SELECT 
-                l.id, 
+                l.id AS "loanId", 
                 l.user_id AS "userId", 
                 l.book_id AS "bookId", 
                 l.kodepinjam AS "kodePinjam", 
                 l.loandate AS "loanDate", 
-                l.expectedreturndate AS "expectedReturnDate",
+                l.expectedreturndate AS "returnDate",
                 l.status, 
-                l.returnproofurl AS "returnProofUrl", 
+                l.returnproofurl AS "proofUrl",
+                l.returnproofmetadata AS "returnProofMetadata", 
                 l.actualreturndate AS "actualReturnDate", 
                 l.createdat AS "createdAt",
-                u.npm, 
-                u.username AS "borrowerName", 
+                u.npm AS "userNpm", 
+                u.username AS "userName", 
                 u.fakultas,
                 b.title AS "bookTitle", 
                 b.author AS "bookAuthor", 
@@ -1472,7 +1477,7 @@ exports.getReturnsForReview = async (req, res) => {
         `);
         
         console.log('✅ [getReturnsForReview] Found:', result.rows?.length || 0, 'returns');
-        res.json({ success: true, items: result.rows });
+        res.json({ success: true, returns: result.rows });
     } catch (error) {
         console.error('❌ [getReturnsForReview] Error:', error);
         res.status(500).json({ success: false, message: 'Gagal memuat pengembalian: ' + error.message });
