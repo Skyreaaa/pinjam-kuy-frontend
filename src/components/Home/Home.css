@@ -262,7 +262,7 @@ body {
 .info-card.borrowed .info-icon, .info-card.borrowed .info-value { color: var(--primary-blue); }
 
 .info-card.late-fee { border-left-color: var(--primary-green); }
-.info-card.late-fee .info-icon, .info-card.late-fee .info-value { color: var(--primary-green); }
+.info-card.late-fee .info-icon, .info-card.late-fee .info-value { color:#911111; }
 
 /* Clickable state */
 .info-card.clickable { cursor: pointer; transition: box-shadow .25s, transform .25s; }
