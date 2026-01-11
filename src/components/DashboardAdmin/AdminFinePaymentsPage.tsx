@@ -61,10 +61,25 @@ const PaymentDetailModal: React.FC<{
 	// Get full proof URL
 	const getProofUrl = (url?: string) => {
 		if (!url) return null;
+		// Already a full URL (http/https or cloudinary)
 		if (url.startsWith('http')) return url;
-		// Prepend backend URL
+		
 		const backendUrl = process.env.REACT_APP_API_URL || 'https://pinjam-kuy-backend-production.up.railway.app';
-		return `${backendUrl}${url}`;
+		
+		// Handle various formats:
+		// - "/uploads/fine-proofs/filename" -> backendUrl + url
+		// - "fine-proofs/filename" -> backendUrl + /uploads/ + url  
+		// - "uploads/fine-proofs/filename" -> backendUrl + / + url
+		if (url.startsWith('/uploads/')) {
+			return `${backendUrl}${url}`;
+		} else if (url.startsWith('uploads/')) {
+			return `${backendUrl}/${url}`;
+		} else if (url.startsWith('/')) {
+			return `${backendUrl}${url}`;
+		} else {
+			// Assume it's just filename or "fine-proofs/filename"
+			return `${backendUrl}/uploads/${url}`;
+		}
 	};
 
 	const proofImageUrl = getProofUrl(payment.proof_url);

@@ -1461,7 +1461,9 @@ exports.submitFinePayment = async (req, res) => {
             }
             
             if (req.file) {
-                proofUrl = `/uploads/fine-proofs/${req.file.filename}`;
+                // Use Cloudinary URL from req.file.path (not local path)
+                proofUrl = req.file.path;
+                console.log('📸 [submitFinePayment] Uploaded proof to Cloudinary:', proofUrl);
             } else {
                 return res.status(400).json({ message: 'Bukti transfer wajib diupload.' });
             }
