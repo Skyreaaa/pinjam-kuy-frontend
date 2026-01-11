@@ -171,7 +171,7 @@ const Home: React.FC<HomeProps> = ({
     <div className="home-container">
       <header className="home-header">
         <div className="logo-container">
-          <img src="/logo-nobg.png" alt="Logo" className="logo" />
+           <img src={logoImg} alt="PinjamKuy Logo" className="logo" />
           <span className="app-name">PinjamKuy</span>
         </div>
         <button
