@@ -196,7 +196,8 @@ exports.createBook = async (req, res) => {
             valuesToInsert.push(pages || null);
         }
 
-        const insertQuery = `INSERT INTO books (${columnsToInsert.join(', ')}) VALUES (${columnsToInsert.map(() => '$1').join(', ')})`;
+        const placeholders = columnsToInsert.map((_, index) => `$${index + 1}`).join(', ');
+        const insertQuery = `INSERT INTO books (${columnsToInsert.join(', ')}) VALUES (${placeholders}) RETURNING id`;
         console.log('📊 [CREATE BOOK] SQL:', insertQuery);
         console.log('📊 [CREATE BOOK] Values:', valuesToInsert);
 
@@ -364,33 +365,44 @@ exports.deleteBook = async (req, res) => {
     const pool = getDBPool(req);
     const bookId = req.params.id;
 
+    console.log('🗑️ [DELETE BOOK] Request for book ID:', bookId);
+
     try {
-        // 1. Cek apakah ada pinjaman aktif (Penting: Logika yang diminta dipertahankan)
-        const [activeLoans] = await pool.query('SELECT COUNT(*) as count FROM loans WHERE book_id = $1 AND status IN ($2, $3, $4)', 
+        // 1. Cek apakah ada pinjaman aktif
+        const activeLoanResult = await pool.query(
+            'SELECT COUNT(*) as count FROM loans WHERE book_id = $1 AND status IN ($2, $3, $4)', 
             [bookId, 'Sedang Dipinjam', 'Menunggu Persetujuan', 'Siap Dikembalikan']
         );
-        if (activeLoans[0].count > 0) {
-            return res.status(400).json({ message: `Tidak dapat menghapus buku. Terdapat ${activeLoans[0].count} pinjaman yang masih aktif (Dipinjam/Tertunda/Siap Dikembalikan).` });
+        
+        const loanCount = parseInt(activeLoanResult.rows[0]?.count || 0);
+        console.log('📊 [DELETE BOOK] Active loans count:', loanCount);
+        
+        if (loanCount > 0) {
+            return res.status(400).json({ 
+                message: `Tidak dapat menghapus buku. Terdapat ${loanCount} pinjaman yang masih aktif.` 
+            });
         }
 
-        // 2. Ambil image_url sebelum menghapus data
-        const [book] = await pool.query('SELECT image_url FROM books WHERE id = $1', [bookId]);
+        // 2. Ambil data buku sebelum menghapus
+        const bookResult = await pool.query('SELECT image_url FROM books WHERE id = $1', [bookId]);
         
-        // 3. Hapus data buku
-        const result = await pool.query('DELETE FROM books WHERE id = $1', [bookId]);
-
-        if (result.rowCount === 0) {
+        if (bookResult.rows.length === 0) {
             return res.status(404).json({ message: 'Buku tidak ditemukan.' });
         }
         
-        // 4. Hapus file cover
-        if (book.length > 0 && book[0].image_url) {
-            await deleteOldImage(book[0].image_url);
-        }
+        const imageUrl = bookResult.rows[0].image_url;
+        
+        // 3. Hapus data buku
+        const deleteResult = await pool.query('DELETE FROM books WHERE id = $1', [bookId]);
 
+        console.log('✅ [DELETE BOOK] Book deleted, rows affected:', deleteResult.rowCount);
+
+        // 4. Optional: Hapus file cover dari Cloudinary (jika perlu)
+        // Cloudinary files akan tetap ada, bisa dihapus manual jika diperlukan
+        
         res.json({ success: true, message: 'Buku berhasil dihapus.' });
     } catch (error) {
-        console.error('❌ Error deleting book:', error);
-        res.status(500).json({ message: 'Gagal menghapus buku.' });
+        console.error('❌ [DELETE BOOK] Error:', error);
+        res.status(500).json({ message: 'Gagal menghapus buku.', error: error.message });
     }
 };

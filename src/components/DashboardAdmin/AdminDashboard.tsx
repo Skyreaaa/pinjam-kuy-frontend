@@ -48,11 +48,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialView }) => {
     const [fineLoading, setFineLoading] = useState(false);
     const [fineError, setFineError] = useState<string|null>(null);
 
-    // History State
-    const [history, setHistory] = useState<any[]>([]);
-    const [historyLoading, setHistoryLoading] = useState(false);
-    const [historyError, setHistoryError] = useState<string|null>(null);
-
     // Listen for QR scan trigger from dashboard
     React.useEffect(() => {
         const handler = () => handleScanQR();
@@ -113,24 +108,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialView }) => {
             setFineLoading(false);
         }
     };
-
-    // Fetch History
-    const fetchHistory = async () => {
-        setHistoryLoading(true);
-        setHistoryError(null);
-        try {
-            console.log('[ADMIN] Fetching history...');
-            const data = await require('../../services/api').adminApi.get('/history-all');
-            console.log('[ADMIN] History response:', data);
-            setHistory(data || []);
-        } catch (e: any) {
-            console.error('[ADMIN] Error fetching history:', e);
-            setHistoryError(e.response?.data?.message || e.message || 'Gagal memuat riwayat aktivitas');
-        } finally {
-            setHistoryLoading(false);
-        }
-    };
-    React.useEffect(() => { if (view === 'history') fetchHistory(); }, [view]);
 
     const handleAddUser = () => {
         setEditUser(null);
@@ -314,7 +291,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialView }) => {
             page = <AdminFinePaymentsPage finePayments={finePayments} isLoading={fineLoading} error={fineError} onVerify={handleVerifyFinePayment} />;
             break;
         case 'history':
-            page = <AdminHistoryPage history={history} isLoading={historyLoading} error={historyError} />;
+            page = <AdminHistoryPage />;
             break;
         case 'broadcast':
             page = <AdminBroadcastPage />;

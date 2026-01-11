@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FaMapMarkerAlt, FaClock, FaTimes } from 'react-icons/fa';
 import DateRangeModal from './DateRangeModal';
 import EmptyState from '../common/EmptyState';
 import './AdminDashboard.css';
 import { FaHistory, FaCheckCircle, FaTimesCircle, FaMoneyBillWave, FaUndo } from 'react-icons/fa';
+import { adminApi } from '../../services/api';
 
 interface HistoryItem {
 	id: number;
@@ -28,124 +29,128 @@ interface HistoryItem {
 	username: string;
 	npm: string;
 	fakultas: string;
+	angkatan?: string;
 }
 
 interface AdminHistoryPageProps {
-	history: HistoryItem[];
-	isLoading: boolean;
-	error: string | null;
 	onShowProof?: (url: string, context?: any) => void;
 }
 
-
-
-const AdminHistoryPage: React.FC<AdminHistoryPageProps> = ({ history, isLoading, error, onShowProof }) => {
+const AdminHistoryPage: React.FC<AdminHistoryPageProps> = ({ onShowProof }) => {
 	const [proofModal, setProofModal] = useState<{ url: string, meta?: any, context?: any } | null>(null);
-       // Filter states
+	const [history, setHistory] = useState<HistoryItem[]>([]);
+	const [isLoading, setIsLoading] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+	
+	// Filter states
 	const [search, setSearch] = useState('');
 	const [kategori, setKategori] = useState<'all'|'pengembalian'|'denda'>('all');
-	const [dateFrom, setDateFrom] = useState('');
-	const [dateTo, setDateTo] = useState('');
-	const [datePreset, setDatePreset] = useState<'all'|'today'|'7days'|'month'|'custom'>('all');
+	const [dateFilter, setDateFilter] = useState<'all'|'today'|'thisMonth'|'thisYear'>('all');
+	const [angkatan, setAngkatan] = useState('');
+	const [npmSearch, setNpmSearch] = useState('');
 	const [showDateModal, setShowDateModal] = useState(false);
+	
+	// Fetch history with filters
+	const fetchHistory = async () => {
+		setIsLoading(true);
+		setError(null);
+		try {
+			const params = new URLSearchParams();
+			if (dateFilter !== 'all') params.append('dateFilter', dateFilter);
+			if (angkatan) params.append('angkatan', angkatan);
+			if (npmSearch.trim()) params.append('npm', npmSearch.trim());
+			
+			console.log('[ADMIN HISTORY] Fetching with params:', params.toString());
+			const data = await adminApi.get(`/history-all?${params.toString()}`);
+			setHistory(data || []);
+		} catch (e: any) {
+			console.error('[ADMIN HISTORY] Error:', e);
+			setError(e.response?.data?.message || e.message || 'Gagal memuat riwayat');
+		} finally {
+			setIsLoading(false);
+		}
+	};
+	
+	// Initial fetch
+	useEffect(() => {
+		fetchHistory();
+	}, []);
+	
+	// Refetch when filters change
+	const handleApplyFilters = () => {
+		fetchHistory();
+	};
 
-			 // Helper to set date range based on preset
-			 const handleDatePreset = (preset: 'all'|'today'|'7days'|'month'|'custom') => {
-				 if (preset === 'custom') {
-					 setShowDateModal(true);
-					 return;
-				 }
-				 setDatePreset(preset);
-				 if (preset === 'all') {
-					 setDateFrom(''); setDateTo('');
-				 } else if (preset === 'today') {
-					 const today = new Date();
-					 const iso = today.toISOString().slice(0,10);
-					 setDateFrom(iso); setDateTo(iso);
-				 } else if (preset === '7days') {
-					 const today = new Date();
-					 const from = new Date(today); from.setDate(today.getDate()-6);
-					 setDateFrom(from.toISOString().slice(0,10));
-					 setDateTo(today.toISOString().slice(0,10));
-				 } else if (preset === 'month') {
-					 const today = new Date();
-					 const from = new Date(today.getFullYear(), today.getMonth(), 1);
-					 setDateFrom(from.toISOString().slice(0,10));
-					 setDateTo(today.toISOString().slice(0,10));
-				 }
-			 };
+	// Client-side filter for kategori and username search
+	const filtered = history.filter(item => {
+		// Filter kategori
+		if (kategori === 'pengembalian' && item.fineAmount && item.fineAmount > 0) return false;
+		if (kategori === 'denda' && (!item.fineAmount || item.fineAmount === 0)) return false;
+		// Filter search (username)
+		const searchLower = search.trim().toLowerCase();
+		if (searchLower && !item.username.toLowerCase().includes(searchLower)) return false;
+		return true;
+	});
 
-			 // When custom applied
-			 const handleApplyCustomDate = () => {
-				 setDatePreset('custom');
-				 setShowDateModal(false);
-			 };
-
-			 const filtered = history.filter(item => {
-				 // Filter kategori
-				 if (kategori === 'pengembalian' && item.fineAmount && item.fineAmount > 0) return false;
-				 if (kategori === 'denda' && (!item.fineAmount || item.fineAmount === 0)) return false;
-				 // Filter search
-				 const searchLower = search.trim().toLowerCase();
-				 if (searchLower && !(item.username.toLowerCase().includes(searchLower) || item.npm.toLowerCase().includes(searchLower))) return false;
-				 // Filter date (compare only YYYY-MM-DD)
-				 let dateVal = item.actualReturnDate || item.approvedAt || item.loanDate;
-				 const getYMD = (d:string) => d ? new Date(d).toISOString().slice(0,10) : '';
-				 if (datePreset !== 'all') {
-					 const valYMD = dateVal ? getYMD(dateVal) : '';
-					 const fromYMD = dateFrom ? getYMD(dateFrom) : '';
-					 const toYMD = dateTo ? getYMD(dateTo) : '';
-					 if (dateFrom && (!valYMD || valYMD < fromYMD)) return false;
-					 if (dateTo && (!valYMD || valYMD > toYMD)) return false;
-				 }
-				 return true;
-			 });
-
-
-		return (
-			<div className="admin-sub-view">
-				<h2><FaHistory /> Riwayat Aktivitas Pengguna</h2>
-				<p className="info-text">Semua aktivitas pengembalian dan pembayaran denda yang sudah selesai. Klik bukti untuk melihat foto.</p>
-				{/* Filter UI */}
-				<div style={{display:'flex',gap:16,alignItems:'center',minHeight:48,lineHeight:1,marginBottom:16}}>
+	return (
+		<div className="admin-sub-view">
+			<h2><FaHistory /> Riwayat Aktivitas Pengguna</h2>
+			<p className="info-text">Semua aktivitas pengembalian dan pembayaran denda yang sudah selesai. Klik bukti untuk melihat foto.</p>
+			
+			{/* Server-side filters */}
+			<div style={{display:'flex',gap:12,alignItems:'flex-end',marginBottom:16,flexWrap:'wrap'}}>
+				<div style={{flex:'1 1 200px',minWidth:200}}>
+					<label style={{display:'block',fontSize:13,marginBottom:4,fontWeight:500}}>Tanggal:</label>
+					<select className="date-filter-input" style={{width:'100%'}} value={dateFilter} onChange={e=>setDateFilter(e.target.value as any)}>
+						<option value="all">Semua</option>
+						<option value="today">Hari ini</option>
+						<option value="thisMonth">Bulan ini</option>
+						<option value="thisYear">Tahun ini</option>
+					</select>
+				</div>
+				<div style={{flex:'1 1 150px',minWidth:150}}>
+					<label style={{display:'block',fontSize:13,marginBottom:4,fontWeight:500}}>Angkatan:</label>
 					<input 
-						className="admin-search-input" 
-						style={{flex:1,minWidth:200,maxWidth:'60%'}} 
 						type="text" 
-						placeholder="Cari nama/NPM..." 
-						value={search} 
-						onChange={e=>setSearch(e.target.value)} 
+						className="admin-search-input" 
+						style={{width:'100%'}} 
+						placeholder="e.g. 2020" 
+						value={angkatan} 
+						onChange={e=>setAngkatan(e.target.value)} 
 					/>
-					<div style={{display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
-						<label style={{fontSize:13,marginRight:4,whiteSpace:'nowrap'}}>Tanggal:</label>
-						<select className="date-filter-input" style={{minWidth:140,maxWidth:180}} value={datePreset} onChange={e=>handleDatePreset(e.target.value as any)}>
-							<option value="all">Semua</option>
-							<option value="today">Hari ini</option>
-							<option value="7days">7 hari terakhir</option>
-							<option value="month">Bulan ini</option>
-							<option value="custom">Custom</option>
-						</select>
-						{datePreset === 'custom' && dateFrom && dateTo && (
-							<span style={{fontSize:13,marginLeft:6,background:'#f4f6f9',borderRadius:8,padding:'3px 10px',color:'#2563eb',fontWeight:500,cursor:'pointer'}} onClick={()=>setShowDateModal(true)}>
-								{new Date(dateFrom).toLocaleDateString('id-ID')} - {new Date(dateTo).toLocaleDateString('id-ID')}
-							</span>
-						)}
-					</div>
 				</div>
-				<div className="tab-filter-group" style={{display:'flex',gap:8,alignItems:'center',marginBottom:12}}>
-					<button className={`btn btn-tab${kategori==='all'?' btn-tab-active':''}`} onClick={()=>setKategori('all')} aria-pressed={kategori==='all'}>Semua Kategori</button>
-					<button className={`btn btn-tab${kategori==='pengembalian'?' btn-tab-active':''}`} onClick={()=>setKategori('pengembalian')} aria-pressed={kategori==='pengembalian'}>Pengembalian Buku</button>
-					<button className={`btn btn-tab${kategori==='denda'?' btn-tab-active':''}`} onClick={()=>setKategori('denda')} aria-pressed={kategori==='denda'}>Pembayaran Denda</button>
+				<div style={{flex:'1 1 200px',minWidth:200}}>
+					<label style={{display:'block',fontSize:13,marginBottom:4,fontWeight:500}}>Cari NPM:</label>
+					<input 
+						type="text" 
+						className="admin-search-input" 
+						style={{width:'100%'}} 
+						placeholder="Masukkan NPM..." 
+						value={npmSearch} 
+						onChange={e=>setNpmSearch(e.target.value)} 
+					/>
 				</div>
-				<DateRangeModal
-					isOpen={showDateModal}
-					onClose={()=>setShowDateModal(false)}
-					dateFrom={dateFrom}
-					dateTo={dateTo}
-					setDateFrom={setDateFrom}
-					setDateTo={setDateTo}
-					onApply={handleApplyCustomDate}
+				<button className="btn btn-primary" onClick={handleApplyFilters} style={{flex:'0 0 auto'}}>
+					Terapkan Filter
+				</button>
+			</div>
+			
+			{/* Client-side filters */}
+			<div style={{display:'flex',gap:16,alignItems:'center',marginBottom:12}}>
+				<input 
+					className="admin-search-input" 
+					style={{flex:1,maxWidth:300}} 
+					type="text" 
+					placeholder="Cari nama user..." 
+					value={search} 
+					onChange={e=>setSearch(e.target.value)} 
 				/>
+			</div>
+			<div className="tab-filter-group" style={{display:'flex',gap:8,alignItems:'center',marginBottom:12}}>
+				<button className={`btn btn-tab${kategori==='all'?' btn-tab-active':''}`} onClick={()=>setKategori('all')} aria-pressed={kategori==='all'}>Semua Kategori</button>
+				<button className={`btn btn-tab${kategori==='pengembalian'?' btn-tab-active':''}`} onClick={()=>setKategori('pengembalian')} aria-pressed={kategori==='pengembalian'}>Pengembalian Buku</button>
+				<button className={`btn btn-tab${kategori==='denda'?' btn-tab-active':''}`} onClick={()=>setKategori('denda')} aria-pressed={kategori==='denda'}>Pembayaran Denda</button>
+			</div>
 				{isLoading ? <p className="loading-bar">Memuat data...</p> : null}
 				{error ? <div className="status-container error"><p className="status-message error">{error}</p></div> : null}
 				<div className="table-responsive">

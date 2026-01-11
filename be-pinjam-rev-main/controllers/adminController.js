@@ -178,11 +178,47 @@ exports.getPendingFinePayments = async (req, res) => {
         res.status(500).json({ message: 'Gagal mengambil data pembayaran denda pending.' });
     }
 };
-// Get all completed loan history (returned or rejected loans)
+// Get all completed loan history (returned or rejected loans) with filters
 exports.getHistoryAll = async (req, res) => {
     const pool = getDBPool(req);
+    const { dateFilter, angkatan, npm } = req.query;
+    
+    console.log('[ADMIN][HISTORY] Filters:', { dateFilter, angkatan, npm });
+    
     try {
-        const result = await pool.query(`
+        let whereConditions = ["l.status IN ('Dikembalikan', 'Ditolak')"];
+        let params = [];
+        let paramCount = 1;
+        
+        // Filter by date
+        if (dateFilter) {
+            if (dateFilter === 'today') {
+                whereConditions.push(`DATE(l.actualReturnDate) = CURRENT_DATE OR DATE(l.approvedAt) = CURRENT_DATE`);
+            } else if (dateFilter === 'thisMonth') {
+                whereConditions.push(`EXTRACT(MONTH FROM COALESCE(l.actualReturnDate, l.approvedAt)) = EXTRACT(MONTH FROM CURRENT_DATE) 
+                    AND EXTRACT(YEAR FROM COALESCE(l.actualReturnDate, l.approvedAt)) = EXTRACT(YEAR FROM CURRENT_DATE)`);
+            } else if (dateFilter === 'thisYear') {
+                whereConditions.push(`EXTRACT(YEAR FROM COALESCE(l.actualReturnDate, l.approvedAt)) = EXTRACT(YEAR FROM CURRENT_DATE)`);
+            }
+        }
+        
+        // Filter by angkatan
+        if (angkatan && angkatan !== 'all') {
+            whereConditions.push(`u.angkatan = $${paramCount}`);
+            params.push(angkatan);
+            paramCount++;
+        }
+        
+        // Search by NPM
+        if (npm && npm.trim()) {
+            whereConditions.push(`u.npm ILIKE $${paramCount}`);
+            params.push(`%${npm.trim()}%`);
+            paramCount++;
+        }
+        
+        const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+        
+        const query = `
             SELECT 
                 l.id,
                 l.loanDate,
@@ -203,13 +239,19 @@ exports.getHistoryAll = async (req, res) => {
                 b.author,
                 u.username,
                 u.npm,
-                u.fakultas
+                u.fakultas,
+                u.angkatan
             FROM loans l
             JOIN books b ON l.book_id = b.id
             JOIN users u ON l.user_id = u.id
-            WHERE l.status IN ('Dikembalikan', 'Ditolak')
+            ${whereClause}
             ORDER BY l.actualReturnDate DESC NULLS LAST, l.approvedAt DESC NULLS LAST, l.loanDate DESC
-        `);
+        `;
+        
+        console.log('[ADMIN][HISTORY] Query:', query);
+        console.log('[ADMIN][HISTORY] Params:', params);
+        
+        const result = await pool.query(query, params);
         
         const rows = result.rows.map(row => ({
             id: row.id,
@@ -233,8 +275,11 @@ exports.getHistoryAll = async (req, res) => {
             author: row.author,
             username: row.username,
             npm: row.npm,
-            fakultas: row.fakultas
+            fakultas: row.fakultas,
+            angkatan: row.angkatan
         }));
+        
+        console.log('[ADMIN][HISTORY] Found rows:', rows.length);
         
         res.json(rows);
     } catch (e) {
