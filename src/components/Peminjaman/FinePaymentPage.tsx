@@ -66,11 +66,24 @@ const FinePaymentPage: React.FC = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       
+      console.log('💰 [FinePaymentPage] All loans:', response.data);
+      console.log('💰 [FinePaymentPage] Loans with fines:', response.data.filter((loan: any) => loan.fineAmount > 0));
+      
       // Filter loans dengan denda yang belum dibayar
       // Relax finePaid check: treat undefined/null as 0 (unpaid)
-      const finesData: FineDetail[] = response.data.filter((loan: any) => 
-        loan.fineAmount > 0 && (loan.finePaid === 0 || loan.finePaid == null) && loan.status === 'Dikembalikan'
-      ).map((loan: any) => ({
+      const finesData: FineDetail[] = response.data.filter((loan: any) => {
+        const hasFine = loan.fineAmount > 0;
+        const isUnpaid = loan.finePaid === 0 || loan.finePaid == null;
+        const isReturned = loan.status === 'Dikembalikan';
+        
+        console.log(`💰 [FinePaymentPage] Loan ${loan.id} - hasFine: ${hasFine}, isUnpaid: ${isUnpaid}, isReturned: ${isReturned}`, {
+          fineAmount: loan.fineAmount,
+          finePaid: loan.finePaid,
+          status: loan.status
+        });
+        
+        return hasFine && isUnpaid && isReturned;
+      }).map((loan: any) => ({
         loanId: loan.id,
         bookTitle: loan.bookTitle,
         kodePinjam: loan.kodePinjam,
@@ -80,6 +93,8 @@ const FinePaymentPage: React.FC = () => {
         fineReason: loan.fineReason || 'Denda keterlambatan',
         returnProofUrl: loan.returnProofUrl
       }));
+      
+      console.log('💰 [FinePaymentPage] Filtered fines data:', finesData);
       
       setFines(finesData);
       setTotalFine(finesData.reduce((sum, f) => sum + f.fineAmount, 0));

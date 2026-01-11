@@ -307,14 +307,19 @@ exports.getUserLoans = async (req, res) => {
         
         // Debug: Log loans with fines for troubleshooting
         const loansWithFines = rows.filter(loan => loan.fineAmount > 0);
+        console.log(`💰 [getUserLoans] User ${userId} - Total loans: ${rows.length}, With fines: ${loansWithFines.length}`);
         if (loansWithFines.length > 0) {
             console.log('💰 [getUserLoans] Found loans with fines:', loansWithFines.map(l => ({
                 id: l.id,
+                bookTitle: l.bookTitle,
                 status: l.status,
                 fineAmount: l.fineAmount,
                 finePaid: l.finePaid,
-                fineReason: l.fineReason
+                fineReason: l.fineReason,
+                actualReturnDate: l.actualReturnDate
             })));
+        } else {
+            console.log(`💰 [getUserLoans] No loans with fines found for user ${userId}`);
         }
         
         res.json(rows);
