@@ -58,28 +58,28 @@ const PaymentDetailModal: React.FC<{
 		return method;
 	};
 
-	// Get full proof URL
+	// Get full proof URL - handle both Cloudinary public_id and full URL
 	const getProofUrl = (url?: string) => {
 		if (!url) return null;
-		// Already a full URL (http/https or cloudinary)
+		
+		// Already a full URL (http/https)
 		if (url.startsWith('http')) return url;
 		
-		const backendUrl = process.env.REACT_APP_API_URL || 'https://pinjam-kuy-backend-production.up.railway.app';
-		
-		// Handle various formats:
-		// - "/uploads/fine-proofs/filename" -> backendUrl + url
-		// - "fine-proofs/filename" -> backendUrl + /uploads/ + url  
-		// - "uploads/fine-proofs/filename" -> backendUrl + / + url
-		if (url.startsWith('/uploads/')) {
-			return `${backendUrl}${url}`;
-		} else if (url.startsWith('uploads/')) {
-			return `${backendUrl}/${url}`;
-		} else if (url.startsWith('/')) {
-			return `${backendUrl}${url}`;
-		} else {
-			// Assume it's just filename or "fine-proofs/filename"
-			return `${backendUrl}/uploads/${url}`;
+		// Check if it looks like Cloudinary public_id (e.g., "fine-proofs/abc123")
+		// Cloudinary public_id doesn't start with / or uploads
+		if (!url.startsWith('/') && !url.startsWith('uploads')) {
+			// Construct Cloudinary URL
+			// Cloud name from env or fallback to common pattern
+			const cloudName = process.env.REACT_APP_CLOUDINARY_CLOUD_NAME || 'dqnvpguxd';
+			return `https://res.cloudinary.com/${cloudName}/image/upload/${url}`;
 		}
+		
+		// Fallback: treat as local backend path
+		const backendUrl = process.env.REACT_APP_API_URL || 'https://pinjam-kuy-backend-production.up.railway.app';
+		if (url.startsWith('/')) {
+			return `${backendUrl}${url}`;
+		}
+		return `${backendUrl}/${url}`;
 	};
 
 	const proofImageUrl = getProofUrl(payment.proof_url);
