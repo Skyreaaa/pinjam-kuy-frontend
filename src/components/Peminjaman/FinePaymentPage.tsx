@@ -48,8 +48,13 @@ const FinePaymentPage: React.FC = () => {
   const getProofUrl = (url?: string) => {
     if (!url) return null;
     
+    console.log('[getProofUrl] Input:', url);
+    
     // Already a full URL (http/https)
-    if (url.startsWith('http')) return url;
+    if (url.startsWith('http')) {
+      console.log('[getProofUrl] Already full URL:', url);
+      return url;
+    }
     
     const cloudName = 'dxew9tloz';
     
@@ -60,7 +65,9 @@ const FinePaymentPage: React.FC = () => {
     publicId = publicId.replace(/^fine-proofs\/fine-proofs\//, 'fine-proofs/');
     
     // Construct Cloudinary URL with the clean public_id
-    return `https://res.cloudinary.com/${cloudName}/image/upload/${publicId}`;
+    const cloudinaryUrl = `https://res.cloudinary.com/${cloudName}/image/upload/${publicId}`;
+    console.log('[getProofUrl] Cloudinary URL:', cloudinaryUrl);
+    return cloudinaryUrl;
   };
   
   // Bank transfer form
@@ -724,7 +731,23 @@ const FinePaymentPage: React.FC = () => {
         <div className="modal-overlay" onClick={() => setShowProofModal(null)}>
           <div className="modal-proof-image" onClick={(e) => e.stopPropagation()}>
             <button className="close-btn" onClick={() => setShowProofModal(null)}><FaTimes /></button>
-            <img src={showProofModal} alt="Bukti Pengembalian" />
+            <img 
+              src={showProofModal} 
+              alt="Bukti Pembayaran" 
+              onError={(e) => {
+                console.error('Image load error:', showProofModal);
+                // Fallback to backend URL if Cloudinary fails
+                const backendUrl = process.env.REACT_APP_API_URL || 'https://pinjam-kuy-backend-production.up.railway.app';
+                const target = e.target as HTMLImageElement;
+                if (!target.src.includes(backendUrl)) {
+                  // Try with backend URL as fallback
+                  const originalUrl = paymentHistory.find(p => getProofUrl(p.proof_url) === showProofModal)?.proof_url;
+                  if (originalUrl) {
+                    target.src = `${backendUrl}${originalUrl}`;
+                  }
+                }
+              }}
+            />
           </div>
         </div>
       )}
