@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { userApi } from '../../services/api';
-import { FaArrowLeft, FaBook, FaUndo, FaMoneyBillWave, FaCheckCircle, FaClock, FaTimesCircle } from 'react-icons/fa';
+import { FaArrowLeft, FaBook, FaUndo, FaMoneyBillWave, FaCheckCircle, FaClock, FaTimesCircle, FaTimes, FaMapMarkerAlt, FaImage } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import './ActivityHistory.css';
 
@@ -11,8 +11,16 @@ interface Activity {
   paymentId?: number;
   kodePinjam?: string;
   bookTitle?: string;
+  kodeBuku?: string;
   author?: string;
+  publisher?: string;
+  category?: string;
   status?: string;
+  loanDate?: string;
+  expectedReturnDate?: string;
+  actualReturnDate?: string;
+  returnProofUrl?: string;
+  returnProofMetadata?: any;
   fineAmount?: number;
   finePaid?: boolean;
   fineReason?: string;
@@ -36,7 +44,9 @@ const ActivityHistory: React.FC = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'loan_request' | 'return' | 'fine_payment'>('all');
+  const [filter, setFilter] = useState<'all' | 'loan_request' | 'return'>('all');
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
 
   useEffect(() => {
     fetchActivityHistory();
@@ -134,8 +144,13 @@ const ActivityHistory: React.FC = () => {
   };
 
   const filteredActivities = filter === 'all' 
-    ? activities 
+    ? activities.filter(a => a.type !== 'fine_payment')
     : activities.filter(a => a.type === filter);
+
+  const handleShowDetail = (activity: Activity) => {
+    setSelectedActivity(activity);
+    setShowDetailModal(true);
+  };
 
   if (loading) {
     return (
@@ -174,7 +189,7 @@ const ActivityHistory: React.FC = () => {
           className={`filter-tab ${filter === 'all' ? 'active' : ''}`}
           onClick={() => setFilter('all')}
         >
-          Semua ({activities.length})
+          Semua ({activities.filter(a => a.type !== 'fine_payment').length})
         </button>
         <button 
           className={`filter-tab ${filter === 'loan_request' ? 'active' : ''}`}
@@ -187,12 +202,6 @@ const ActivityHistory: React.FC = () => {
           onClick={() => setFilter('return')}
         >
           Pengembalian ({activities.filter(a => a.type === 'return').length})
-        </button>
-        <button 
-          className={`filter-tab ${filter === 'fine_payment' ? 'active' : ''}`}
-          onClick={() => setFilter('fine_payment')}
-        >
-          Pembayaran ({activities.filter(a => a.type === 'fine_payment').length})
         </button>
       </div>
 
@@ -233,9 +242,154 @@ const ActivityHistory: React.FC = () => {
                     <strong>Catatan Admin:</strong> {activity.adminNotes}
                   </div>
                 )}
+                <button 
+                  className="detail-button"
+                  onClick={() => handleShowDetail(activity)}
+                >
+                  Lihat Detail
+                </button>
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Modal Detail */}
+      {showDetailModal && selectedActivity && (
+        <div className="modal-overlay" onClick={() => setShowDetailModal(false)}>
+          <div className="modal-content-detail" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowDetailModal(false)}>
+              <FaTimes />
+            </button>
+            
+            <h2>📖 Detail Aktivitas</h2>
+            
+            <div className="detail-section">
+              <h3>Informasi Buku</h3>
+              <div className="detail-grid">
+                <div className="detail-item">
+                  <span className="detail-label">Judul:</span>
+                  <span className="detail-value">{selectedActivity.bookTitle}</span>
+                </div>
+                {selectedActivity.kodeBuku && (
+                  <div className="detail-item">
+                    <span className="detail-label">Kode Buku:</span>
+                    <span className="detail-value">{selectedActivity.kodeBuku}</span>
+                  </div>
+                )}
+                {selectedActivity.kodePinjam && (
+                  <div className="detail-item">
+                    <span className="detail-label">Kode Pinjam:</span>
+                    <span className="detail-value">{selectedActivity.kodePinjam}</span>
+                  </div>
+                )}
+                {selectedActivity.author && (
+                  <div className="detail-item">
+                    <span className="detail-label">Penulis:</span>
+                    <span className="detail-value">{selectedActivity.author}</span>
+                  </div>
+                )}
+                {selectedActivity.publisher && (
+                  <div className="detail-item">
+                    <span className="detail-label">Penerbit:</span>
+                    <span className="detail-value">{selectedActivity.publisher}</span>
+                  </div>
+                )}
+                {selectedActivity.category && (
+                  <div className="detail-item">
+                    <span className="detail-label">Kategori:</span>
+                    <span className="detail-value">{selectedActivity.category}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="detail-section">
+              <h3>Waktu Peminjaman</h3>
+              <div className="detail-grid">
+                {selectedActivity.loanDate && (
+                  <div className="detail-item">
+                    <span className="detail-label">Tanggal Pinjam:</span>
+                    <span className="detail-value">{new Date(selectedActivity.loanDate).toLocaleString('id-ID')}</span>
+                  </div>
+                )}
+                {selectedActivity.expectedReturnDate && (
+                  <div className="detail-item">
+                    <span className="detail-label">Target Kembali:</span>
+                    <span className="detail-value">{new Date(selectedActivity.expectedReturnDate).toLocaleString('id-ID')}</span>
+                  </div>
+                )}
+                {selectedActivity.actualReturnDate && (
+                  <div className="detail-item">
+                    <span className="detail-label">Dikembalikan:</span>
+                    <span className="detail-value">{new Date(selectedActivity.actualReturnDate).toLocaleString('id-ID')}</span>
+                  </div>
+                )}
+                {selectedActivity.status && (
+                  <div className="detail-item">
+                    <span className="detail-label">Status:</span>
+                    <span className="detail-value">{selectedActivity.status}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {selectedActivity.returnProofUrl && (
+              <div className="detail-section">
+                <h3><FaImage /> Bukti Pengembalian</h3>
+                <div className="proof-container">
+                  <img 
+                    src={selectedActivity.returnProofUrl} 
+                    alt="Bukti Pengembalian" 
+                    className="proof-image"
+                  />
+                  {selectedActivity.returnProofMetadata && (
+                    <div className="proof-metadata">
+                      {selectedActivity.returnProofMetadata.lat && selectedActivity.returnProofMetadata.lng && (
+                        <div className="metadata-item">
+                          <FaMapMarkerAlt /> 
+                          Lokasi: {selectedActivity.returnProofMetadata.lat.toFixed(5)}, {selectedActivity.returnProofMetadata.lng.toFixed(5)}
+                        </div>
+                      )}
+                      {selectedActivity.returnProofMetadata.time && (
+                        <div className="metadata-item">
+                          <FaClock /> 
+                          Waktu: {selectedActivity.returnProofMetadata.time}
+                        </div>
+                      )}
+                      {selectedActivity.returnProofMetadata.accuracy && (
+                        <div className="metadata-item">
+                          Akurasi: ±{selectedActivity.returnProofMetadata.accuracy}m
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {selectedActivity.fineAmount && selectedActivity.fineAmount > 0 && (
+              <div className="detail-section">
+                <h3>Informasi Denda</h3>
+                <div className="detail-grid">
+                  <div className="detail-item">
+                    <span className="detail-label">Jumlah Denda:</span>
+                    <span className="detail-value">Rp {selectedActivity.fineAmount.toLocaleString('id-ID')}</span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="detail-label">Status:</span>
+                    <span className="detail-value">{selectedActivity.finePaid ? 'Lunas' : 'Belum Lunas'}</span>
+                  </div>
+                  {selectedActivity.fineReason && (
+                    <div className="detail-item">
+                      <span className="detail-label">Alasan:</span>
+                      <span className="detail-value">{selectedActivity.fineReason}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -229,16 +229,48 @@ const AdminHistoryPage: React.FC<AdminHistoryPageProps> = ({ onShowProof }) => {
 										 ) : <span className="text-muted">-</span>}
 										{/* Modal Bukti Pengembalian */}
 										{proofModal && (
-											<div style={{ position: 'fixed', zIndex: 9999, top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-												<div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 6px 32px #0003', padding: 28, minWidth: 320, maxWidth: '95vw', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-													<button onClick={() => setProofModal(null)} style={{ position: 'absolute', top: 12, right: 12, background: 'none', border: 'none', fontSize: 22, color: '#888', cursor: 'pointer' }}><FaTimes /></button>
-													<h3 style={{ marginBottom: 12, color: '#1a3263' }}>Bukti Pengembalian</h3>
-													<img src={proofModal.url} alt="Bukti Pengembalian" style={{ maxWidth: 260, maxHeight: 260, borderRadius: 10, boxShadow: '0 2px 8px #0001', marginBottom: 12 }} />
+										<div style={{ position: 'fixed', zIndex: 9999, top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+											<div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 8px 40px rgba(0,0,0,0.3)', padding: 32, maxWidth: '800px', width: '100%', maxHeight: '90vh', overflow: 'auto', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+												<button onClick={() => setProofModal(null)} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', fontSize: 24, color: '#888', cursor: 'pointer', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Tutup">
+													<FaTimes />
+												</button>
+												<h3 style={{ marginBottom: 20, color: '#1a3263', fontSize: 22 }}>📸 Bukti Pengembalian</h3>
+													<img 
+														src={proofModal.url} 
+														alt="Bukti Pengembalian" 
+														style={{ 
+															width: '100%',
+															maxWidth: '600px',
+															height: 'auto',
+															borderRadius: 12,
+															boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+															marginBottom: 20,
+															display: 'block'
+														}} 
+													/>
 													{proofModal.meta && (
-														<div style={{ marginTop: 8, fontSize: 15, color: '#1a3263', textAlign: 'left', width: '100%' }}>
-															<div><FaMapMarkerAlt style={{marginRight:4}}/> Lokasi: {proofModal.meta.lat && proofModal.meta.lng ? `${proofModal.meta.lat.toFixed(5)}, ${proofModal.meta.lng.toFixed(5)}` : '-'}</div>
-															<div><FaClock style={{marginRight:4}}/> Waktu: {proofModal.meta.time || '-'}</div>
-															{proofModal.meta.accuracy && <div>Akurasi: ±{proofModal.meta.accuracy}m</div>}
+														<div style={{ 
+															marginTop: 16, 
+															fontSize: 15, 
+															color: '#1a3263', 
+															width: '100%',
+															background: '#f5f7fa',
+															padding: 20,
+															borderRadius: 12
+														}}>
+															<div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+																<FaMapMarkerAlt style={{color: '#2563eb'}}/> 
+																<strong>Lokasi:</strong> {proofModal.meta.lat && proofModal.meta.lng ? `${proofModal.meta.lat.toFixed(5)}, ${proofModal.meta.lng.toFixed(5)}` : '-'}
+															</div>
+															<div style={{ marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+																<FaClock style={{color: '#2563eb'}}/> 
+																<strong>Waktu:</strong> {proofModal.meta.time || '-'}
+															</div>
+															{proofModal.meta.accuracy && (
+																<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+																	<strong>Akurasi GPS:</strong> ±{proofModal.meta.accuracy}m
+																</div>
+															)}
 														</div>
 													)}
 												</div>
