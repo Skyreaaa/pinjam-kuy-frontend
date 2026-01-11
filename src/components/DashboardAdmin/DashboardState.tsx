@@ -13,7 +13,7 @@ import {
   LineElement,
   Filler
 } from 'chart.js';
-import axios from 'axios';
+import { adminApiAxios } from '../../services/api';
 import './DashboardState.css';
 import QRCodeDisplay from '../common/QRCodeDisplay';
 import DashboardCard from './DashboardCard';
@@ -48,16 +48,18 @@ const DashboardState: React.FC = () => {
     const fetchAllStats = async () => {
       try {
         setLoading(true);
-        const token = sessionStorage.getItem('admin_token');
-        const headers = { Authorization: `Bearer ${token}` };
+        console.log('[DASHBOARD] Fetching all statistics...');
         const [statsRes, topBooksRes, monthlyRes, activeLoansRes, outstandingFinesRes, notifStatsRes] = await Promise.all([
-          axios.get('/api/admin/stats', { headers }),
-          axios.get('/api/admin/stats/top-books', { headers }),
-          axios.get('/api/admin/stats/monthly-activity', { headers }),
-          axios.get('/api/admin/stats/active-loans', { headers }),
-          axios.get('/api/admin/stats/outstanding-fines', { headers }),
-          axios.get('/api/admin/stats/notification-stats', { headers })
+          adminApiAxios.get('/admin/stats'),
+          adminApiAxios.get('/admin/stats/top-books'),
+          adminApiAxios.get('/admin/stats/monthly-activity'),
+          adminApiAxios.get('/admin/stats/active-loans'),
+          adminApiAxios.get('/admin/stats/outstanding-fines'),
+          adminApiAxios.get('/admin/stats/notification-stats')
         ]);
+        console.log('[DASHBOARD] Stats:', statsRes.data);
+        console.log('[DASHBOARD] Top Books:', topBooksRes.data);
+        console.log('[DASHBOARD] Monthly Activity:', monthlyRes.data);
         setStats(statsRes.data);
         setTopBooks(Array.isArray(topBooksRes.data) ? topBooksRes.data : []);
         setMonthlyActivity(monthlyRes.data);
@@ -66,6 +68,7 @@ const DashboardState: React.FC = () => {
         setNotifStats(Array.isArray(notifStatsRes.data) ? notifStatsRes.data : []);
         setError(null);
       } catch (err: any) {
+        console.error('[DASHBOARD] Error fetching stats:', err);
         setError('Gagal memuat statistik.');
       } finally {
         setLoading(false);
