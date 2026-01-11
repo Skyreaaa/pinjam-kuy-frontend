@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import './ActivityHistory.css';
 
 interface Activity {
-  type: 'loan_request' | 'return' | 'fine_payment';
+  type: 'loan_request' | 'return' | 'return_rejected' | 'fine_payment';
   date: string;
   loanId?: number;
   paymentId?: number;
@@ -21,6 +21,8 @@ interface Activity {
   actualReturnDate?: string;
   returnProofUrl?: string;
   returnProofMetadata?: any;
+  rejectionReason?: string;
+  adminRejectionProof?: string;
   fineAmount?: number;
   finePaid?: boolean;
   fineReason?: string;
@@ -44,7 +46,7 @@ const ActivityHistory: React.FC = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'loan_request' | 'return'>('all');
+  const [filter, setFilter] = useState<'all' | 'loan_request' | 'return' | 'return_rejected'>('all');
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
 
@@ -79,6 +81,8 @@ const ActivityHistory: React.FC = () => {
         return <FaBook className="activity-icon loan" />;
       case 'return':
         return <FaUndo className="activity-icon return" />;
+      case 'return_rejected':
+        return <FaTimesCircle className="activity-icon rejected" />;
       case 'fine_payment':
         return <FaMoneyBillWave className="activity-icon payment" />;
       default:
@@ -92,6 +96,8 @@ const ActivityHistory: React.FC = () => {
         return 'Peminjaman';
       case 'return':
         return 'Pengembalian';
+      case 'return_rejected':
+        return 'Pengembalian Ditolak';
       case 'fine_payment':
         return 'Pembayaran Denda';
       default:
@@ -197,6 +203,19 @@ const ActivityHistory: React.FC = () => {
         >
           Peminjaman ({activities.filter(a => a.type === 'loan_request').length})
         </button>
+        <button 
+          className={`filter-tab ${filter === 'return' ? 'active' : ''}`}
+          onClick={() => setFilter('return')}
+        >
+          Pengembalian ({activities.filter(a => a.type === 'return').length})
+        </button>
+        <button 
+          className={`filter-tab ${filter === 'return_rejected' ? 'active' : ''}`}
+          onClick={() => setFilter('return_rejected')}
+        >
+          Ditolak ({activities.filter(a => a.type === 'return_rejected').length})
+        </button>
+      </div>
         <button 
           className={`filter-tab ${filter === 'return' ? 'active' : ''}`}
           onClick={() => setFilter('return')}
@@ -364,6 +383,34 @@ const ActivityHistory: React.FC = () => {
                       )}
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {selectedActivity.type === 'return_rejected' && selectedActivity.rejectionReason && (
+              <div className="detail-section">
+                <h3><FaTimesCircle /> Alasan Penolakan</h3>
+                <div className="rejection-reason">
+                  {selectedActivity.rejectionReason}
+                </div>
+              </div>
+            )}
+
+            {selectedActivity.adminRejectionProof && (
+              <div className="detail-section">
+                <h3><FaImage /> Bukti Penolakan Admin</h3>
+                <div className="proof-container">
+                  <img 
+                    src={selectedActivity.adminRejectionProof} 
+                    alt="Bukti Penolakan Admin" 
+                    className="proof-image admin-rejection-proof"
+                    onClick={() => window.open(selectedActivity.adminRejectionProof, '_blank')}
+                    style={{ cursor: 'pointer', border: '2px solid #e53935' }}
+                    title="Klik untuk memperbesar"
+                  />
+                  <p className="admin-proof-info">
+                    📸 Bukti penolakan yang diupload oleh admin. Klik untuk memperbesar.
+                  </p>
                 </div>
               </div>
             )}

@@ -171,6 +171,10 @@
   color: #52c41a;
 }
 
+.activity-icon.rejected {
+  color: #f5222d;
+}
+
 .activity-icon.payment {
   color: #faad14;
 }
@@ -486,6 +490,34 @@
 
 .metadata-item:last-child {
   margin-bottom: 0;
+}
+
+/* Admin Rejection Proof Styles */
+.rejection-reason {
+  background: #fff1f0;
+  border: 1px solid #ffccc7;
+  border-radius: 8px;
+  padding: 16px;
+  color: #cf1322;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-top: 8px;
+}
+
+.admin-rejection-proof {
+  border: 2px solid #f5222d !important;
+  box-shadow: 0 2px 8px rgba(245, 34, 45, 0.2);
+}
+
+.admin-proof-info {
+  margin-top: 12px;
+  padding: 12px;
+  background: #fff7f7;
+  border: 1px solid #ffccc7;
+  border-radius: 6px;
+  color: #8c8c8c;
+  font-size: 13px;
+  text-align: center;
 }
 
 @media (max-width: 768px) {

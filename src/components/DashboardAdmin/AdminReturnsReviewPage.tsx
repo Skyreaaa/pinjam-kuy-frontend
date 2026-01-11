@@ -29,22 +29,48 @@ interface ReturnForReview {
   returnProofMetadata: ReturnProofMetadata | null;
 }
 
-// Modal untuk Reject dengan form reason + fine
+// Modal untuk Reject dengan form reason + fine + admin proof upload
 const RejectFormModal: React.FC<{
   open: boolean;
   onClose: () => void;
-  onConfirm: (reason: string, fineAmount: number) => void;
+  onConfirm: (reason: string, fineAmount: number, adminProofFile?: File) => void;
   processing: boolean;
 }> = ({ open, onClose, onConfirm, processing }) => {
   const [reason, setReason] = React.useState('');
   const [fine, setFine] = React.useState(0);
+  const [adminProofFile, setAdminProofFile] = React.useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      setAdminProofFile(file);
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
+    } else {
+      alert('Silakan pilih file gambar (JPG, PNG)');
+    }
+  };
+
+  const clearFile = () => {
+    setAdminProofFile(null);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+  };
 
   if (!open) return null;
 
   const handleSubmit = () => {
-    onConfirm(reason, fine);
+    if (!reason.trim()) {
+      alert('Alasan penolakan harus diisi!');
+      return;
+    }
+    onConfirm(reason, fine, adminProofFile || undefined);
     setReason('');
     setFine(0);
+    clearFile();
     onClose();
   };
 
@@ -104,6 +130,56 @@ const RejectFormModal: React.FC<{
             style={{width: '100%', padding: 10, fontSize: 14, borderRadius: 8, border: '1px solid #ddd'}}
           />
           <small style={{color: '#666'}}>Kosongkan jika tidak ada denda</small>
+        </div>
+
+        <div style={{marginBottom: 20}}>
+          <label style={{display: 'block', fontWeight: 600, marginBottom: 8}}>📸 Bukti Penolakan (Opsional):</label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleFileSelect}
+            style={{
+              width: '100%', 
+              padding: 8, 
+              fontSize: 14, 
+              borderRadius: 8, 
+              border: '1px solid #ddd',
+              marginBottom: 8
+            }}
+          />
+          <small style={{color: '#666'}}>Upload foto sebagai bukti penolakan (JPG/PNG)</small>
+          
+          {previewUrl && (
+            <div style={{marginTop: 12, textAlign: 'center'}}>
+              <img 
+                src={previewUrl} 
+                alt="Preview" 
+                style={{
+                  maxWidth: '100%', 
+                  maxHeight: 200, 
+                  borderRadius: 8, 
+                  border: '2px solid #ddd'
+                }} 
+              />
+              <div style={{marginTop: 8}}>
+                <button
+                  type="button"
+                  onClick={clearFile}
+                  style={{
+                    background: '#f5222d',
+                    color: 'white',
+                    border: 'none',
+                    padding: '4px 12px',
+                    borderRadius: 4,
+                    fontSize: 12,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Hapus Foto
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div style={{display: 'flex', gap: 10, justifyContent: 'flex-end'}}>
@@ -323,14 +399,28 @@ const AdminReturnsReviewPage: React.FC = () => {
     setRejectModal({ open: true, loanId });
   };
 
-  const confirmReject = async (reason: string, fineAmount: number) => {
+  const confirmReject = async (reason: string, fineAmount: number, adminProofFile?: File) => {
     const loanId = rejectModal.loanId;
     if (!loanId) return;
     
     setProcessing(true);
     try {
-      await adminApiAxios.post(`/admin/returns/reject`, { loanId, reason, fineAmount });
-      setAlertModal({ open: true, message: 'Pengembalian ditolak', type: 'warning' });
+      // Prepare FormData for file upload
+      const formData = new FormData();
+      formData.append('loanId', loanId.toString());
+      formData.append('reason', reason);
+      formData.append('fineAmount', fineAmount.toString());
+      
+      if (adminProofFile) {
+        formData.append('adminProof', adminProofFile);
+      }
+
+      await adminApiAxios.post(`/admin/returns/reject`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      setAlertModal({ open: true, message: 'Pengembalian ditolak dan bukti tersimpan', type: 'warning' });
       setRejectModal({ open: false });
       fetchReturns();
     } catch (error) {

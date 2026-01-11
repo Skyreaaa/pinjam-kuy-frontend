@@ -55,16 +55,27 @@ const returnProofStorage = new CloudinaryStorage({
 	},
 });
 
+// Storage untuk admin rejection proof (bukti penolakan admin)
+const adminRejectionStorage = new CloudinaryStorage({
+	cloudinary: cloudinary,
+	params: {
+		folder: 'admin-rejection-proofs',
+		allowed_formats: ['jpg', 'jpeg', 'png'],
+	},
+});
+
 const uploadBookCover = multer({ storage: bookCoverStorage });
 const uploadFineProof = multer({ storage: fineProofStorage });
 const uploadProfile = multer({ storage: profileStorage });
 const uploadAttachment = multer({ storage: attachmentStorage });
 const uploadReturnProof = multer({ storage: returnProofStorage });
+const uploadAdminRejection = multer({ storage: adminRejectionStorage });
 
 module.exports = {
 	uploadBookCover,
 	uploadFineProof,
 	uploadProfile,
 	uploadAttachment,
-	uploadReturnProof
+	uploadReturnProof,
+	uploadAdminRejection
 };

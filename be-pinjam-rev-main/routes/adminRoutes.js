@@ -321,8 +321,9 @@ router.post('/loans/reject', loanController.rejectLoan);
 
 // Aksi Pengembalian: POST /api/admin/returns/process (body: {loanId, fineAmount})
 router.post('/returns/process', loanController.processReturn);
-// Aksi Pengembalian: POST /api/admin/returns/reject (body: {loanId})
-router.post('/returns/reject', loanController.rejectReturnProof);
+// Aksi Pengembalian: POST /api/admin/returns/reject (body: {loanId}) - with optional file upload
+const { uploadAdminRejection } = require('../middleware/upload');
+router.post('/returns/reject', uploadAdminRejection.single('adminProof'), loanController.rejectReturnProof);
 
 // === FINE PAYMENTS ===
 router.get('/fine-payments', loanController.getAllFinePayments);

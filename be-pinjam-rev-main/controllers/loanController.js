@@ -27,6 +27,19 @@ const calculatePenalty = (expectedReturnDate, actualReturnDate) => {
     return daysLate * PENALTY_PER_DAY;
 };
 
+// Helper untuk mengirim notifikasi ke user_notifications table
+const sendUserNotification = async (pool, userId, message, type = 'info') => {
+    try {
+        await pool.query(
+            'INSERT INTO user_notifications (user_id, message, type, is_broadcast) VALUES ($1, $2, $3, $4)',
+            [userId, message, type, false]
+        );
+        console.log(`✅ [NOTIFICATION] Sent to user ${userId}: ${message}`);
+    } catch (error) {
+        console.warn(`❌ [NOTIFICATION] Failed to send to user ${userId}:`, error.message);
+    }
+};
+
 // Helper untuk mengirim notifikasi user ke database
 const sendUserNotification = async (pool, userId, message, type = 'info') => {
     try {
@@ -950,6 +963,13 @@ exports.rejectReturnProof = async (req, res) => {
     const { loanId, reason = '', fineAmount = 0 } = req.body; // Admin bisa kasih alasan + denda
     if (!loanId) return res.status(400).json({ message: 'ID Pinjaman diperlukan.' });
 
+    // Ambil URL file admin jika ada upload
+    let adminProofUrl = null;
+    if (req.file) {
+        adminProofUrl = req.file.path; // Cloudinary URL
+        console.log('📸 [ADMIN REJECTION] Uploaded proof:', adminProofUrl);
+    }
+
     // PostgreSQL uses pool directly
     try {
         // No getConnection needed
@@ -976,8 +996,8 @@ exports.rejectReturnProof = async (req, res) => {
         const nextStatus = (due && now > due) ? 'Terlambat' : 'Sedang Dipinjam';
 
         await pool.query(
-            `UPDATE loans SET status=$1, returnProofUrl=NULL, readyReturnDate=NULL, returnNotified = FALSE, returnDecision = 'rejected', rejectionReason=$2, rejectionDate=CURRENT_TIMESTAMP WHERE id=$3`,
-            [nextStatus, reason, loanId]
+            `UPDATE loans SET status=$1, returnProofUrl=NULL, readyReturnDate=NULL, returnNotified = FALSE, returnDecision = 'rejected', rejectionReason=$2, rejectionDate=CURRENT_TIMESTAMP, adminRejectionProof=$4 WHERE id=$3`,
+            [nextStatus, reason, loanId, adminProofUrl]
         );
 
         // Tambah denda jika admin kasih denda
@@ -1516,7 +1536,7 @@ exports.getUserActivityHistory = async (req, res) => {
         
         console.log('[ACTIVITY_HISTORY] Fetching activities since:', twoMonthsAgo);
         
-        // Get all loans from last 2 months with book info
+        // Get all loans from last 2 months with book info and admin rejection proof
         const loansResult = await pool.query(
             `SELECT 
                 l.id,
@@ -1528,6 +1548,11 @@ exports.getUserActivityHistory = async (req, res) => {
                 l.fineamount AS "fineAmount",
                 l.finepaid AS "finePaid",
                 l.finereason AS "fineReason",
+                l.rejectionreason AS "rejectionReason",
+                l.rejectiondate AS "rejectionDate",
+                l.adminrejectionproof AS "adminRejectionProof",
+                l.returnproofurl AS "returnProofUrl",
+                l.returnproofmetadata AS "returnProofMetadata",
                 l.createdat AS "createdAt",
                 b.title AS "bookTitle",
                 b.author,
@@ -1591,7 +1616,25 @@ exports.getUserActivityHistory = async (req, res) => {
                     fineAmount: loan.fineAmount,
                     finePaid: loan.finePaid,
                     fineReason: loan.fineReason,
+                    returnProofUrl: loan.returnProofUrl,
+                    returnProofMetadata: loan.returnProofMetadata,
                     description: `Mengembalikan buku "${loan.bookTitle}"${loan.fineAmount > 0 ? ` (Denda: Rp ${loan.fineAmount.toLocaleString('id-ID')})` : ''}`
+                });
+            }
+            
+            // Return rejection activity if rejected by admin
+            if (loan.rejectionDate && loan.rejectionReason) {
+                activities.push({
+                    type: 'return_rejected',
+                    date: loan.rejectionDate,
+                    loanId: loan.id,
+                    kodePinjam: loan.kodePinjam,
+                    bookTitle: loan.bookTitle,
+                    author: loan.author,
+                    status: 'Pengembalian Ditolak',
+                    rejectionReason: loan.rejectionReason,
+                    adminRejectionProof: loan.adminRejectionProof,
+                    description: `Pengembalian buku "${loan.bookTitle}" ditolak admin${loan.rejectionReason ? `: ${loan.rejectionReason}` : ''}`
                 });
             }
         });
