@@ -80,18 +80,23 @@ const QRScanModal: React.FC<QRScanModalProps> = ({ isOpen, onClose, onScan, scan
       scannerRunningRef.current = false;
     }
     
-    // Bersihkan DOM dengan cara yang lebih aman
-    if (scannerRef.current) {
-      scannerRef.current.innerHTML = '';
-    }
-    html5QrRef.current = new Html5Qrcode(scannerRef.current.id);
-    let isActive = true;
-    scannerRunningRef.current = true;
-    console.log('📷 Starting QR scanner with device:', selectedCameraId);
-    html5QrRef.current
-      .start(
-        { deviceId: selectedCameraId },
-        { fps: 10, qrbox: { width: 350, height: 350 }, aspectRatio: 1.0 },
+    // Tunggu sebentar sebelum membuat scanner baru
+    setTimeout(() => {
+      if (!scannerRef.current || !isOpen) return;
+      
+      html5QrRef.current = new Html5Qrcode(scannerRef.current!.id);
+      let isActive = true;
+      scannerRunningRef.current = true;
+      console.log('📷 Starting QR scanner with device:', selectedCameraId);
+      html5QrRef.current
+        .start(
+          { deviceId: selectedCameraId },
+          { 
+            fps: 15, 
+            qrbox: { width: 380, height: 380 }, 
+            aspectRatio: 1.0,
+            disableFlip: false 
+          },
         async (decodedText) => {
           if (isActive && scannerRunningRef.current) {
             // Jangan stop scanner, biarkan tetap berjalan untuk scan berikutnya
@@ -144,32 +149,37 @@ const QRScanModal: React.FC<QRScanModalProps> = ({ isOpen, onClose, onScan, scan
           // ignore scan errors, only show error if camera fails
         }
       )
-      .catch((err) => {
-        setErrorMsg('Gagal memulai kamera: ' + err);
-      });
-    return () => {
-      if (html5QrRef.current) {
-        try { html5QrRef.current.stop(); } catch (e) {}
-        try { html5QrRef.current.clear(); } catch (e) {}
-        html5QrRef.current = null;
-        scannerRunningRef.current = false;
-      }
-      // Pastikan child div kosong
-      if (scannerRef.current) {
-        while (scannerRef.current.firstChild) {
-          try { scannerRef.current.removeChild(scannerRef.current.firstChild); } catch {}
+        .catch((err) => {
+          setErrorMsg('Gagal memulai kamera: ' + err);
+        });
+      
+      return () => {
+        isActive = false;
+        if (html5QrRef.current && scannerRunningRef.current) {
+          html5QrRef.current.stop().catch(() => {});
+          html5QrRef.current.clear().catch(() => {});
+          html5QrRef.current = null;
+          scannerRunningRef.current = false;
         }
-      }
-    };
+      };
+    }, 300);
   }, [isOpen, selectedCameraId]);
 
   const handleClose = async () => {
     if (isStopping) return;
     setIsStopping(true);
     try {
-      if (html5QrRef.current) {
-        try { await html5QrRef.current.stop(); } catch {}
-        try { await html5QrRef.current.clear(); } catch {}
+      if (html5QrRef.current && scannerRunningRef.current) {
+        try { 
+          await html5QrRef.current.stop(); 
+        } catch (e) {
+          console.log('⚠️ Stop error (ignored):', e);
+        }
+        try { 
+          await html5QrRef.current.clear(); 
+        } catch (e) {
+          console.log('⚠️ Clear error (ignored):', e);
+        }
         html5QrRef.current = null;
         scannerRunningRef.current = false;
       }
