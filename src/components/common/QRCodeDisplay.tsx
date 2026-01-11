@@ -19,7 +19,6 @@ const QRCodeDisplay: React.FC<QRCodeDisplayProps> = ({ value, size = 240, label,
         id={id} 
         level="H" 
         includeMargin={true}
-        margin={1}
         style={{ background: '#fff', borderRadius: 8, display: 'block', width: '100%', height: '100%' }} 
       />
       <div
