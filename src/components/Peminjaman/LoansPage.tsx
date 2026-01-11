@@ -13,6 +13,7 @@ import { loanApi, userApi } from '../../services/api';
 import { Loan } from '../../types';
 import QRCodeDisplay from '../common/QRCodeDisplay';
 import { getSocket } from '../../services/socket';
+import { mapStatus, isQRReady, canUploadReturnProof, getStatusClass } from '../../utils/statusMapping';
 
 const LoansPage: React.FC = () => {
 	const [loans, setLoans] = useState<Loan[]>([]);
@@ -220,7 +221,7 @@ const LoansPage: React.FC = () => {
 									{loan.bookTitle || <span style={{color:'#bbb'}}>Judul tidak tersedia</span>}
 									{isDigitalBook && <span style={{marginLeft:8,fontSize:'0.75rem',background:'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',color:'#fff',padding:'2px 8px',borderRadius:12,fontWeight:600}}>Digital</span>}
 								</div>
-								<span className={`loan-status ${loan.status?.toLowerCase().replace(/\s/g,'-')}`}>{loan.status}</span>
+								<span className={`loan-status ${getStatusClass(loan.status)}`}>{mapStatus(loan.status)}</span>
 							</div>
 							<div className="loan-card-body">
 								<div className="loan-kode">Kode: <b>{loan.kodePinjam}</b></div>
@@ -234,13 +235,13 @@ const LoansPage: React.FC = () => {
 								{typeof loan.penaltyAmount === 'number' && loan.penaltyAmount > 0 && (
 									<div className="loan-info-row"><FaMoneyBillWave style={{marginRight:4}}/> <span>Denda:</span> <b>Rp {loan.penaltyAmount.toLocaleString('id-ID')}</b></div>
 								)}
-								{/* QR Timer - HANYA untuk buku fisik status Disetujui */}
-								{!isDigitalBook && loan.status === 'Disetujui' && timeLeft && (
+								{/* QR Timer - HANYA untuk buku fisik status pending (Disetujui) */}
+								{!isDigitalBook && isQRReady(loan.status) && timeLeft && (
 									<div className="qr-validity" style={{background:'#e3f2fd',padding:'8px 12px',borderRadius:8,marginTop:8,fontSize:'0.9rem',fontWeight:600,color:'#1976d2',textAlign:'center'}}>
 										⏰ QR berlaku: {timeLeft}
 									</div>
 								)}
-								{!isDigitalBook && loan.status === 'Disetujui' && qrExpired && (
+								{!isDigitalBook && isQRReady(loan.status) && qrExpired && (
 									<div className="qr-expired" style={{background:'#ffebee',padding:'8px 12px',borderRadius:8,marginTop:8,fontSize:'0.9rem',fontWeight:600,color:'#c62828',textAlign:'center'}}>
 										⚠️ QR Expired - Peminjaman dibatalkan
 									</div>
@@ -261,21 +262,22 @@ const LoansPage: React.FC = () => {
 								{/* Buttons untuk buku fisik */}
 								{!isDigitalBook && (
 									<>
-										{/* Button Tunjukkan QR - untuk status Disetujui (belum diambil) */}
-										{onShowQr && loan.status === 'Disetujui' && !qrExpired && (
+										{/* Button Tunjukkan QR - untuk status pending (Disetujui) dan belum expired */}
+										{onShowQr && isQRReady(loan.status) && !qrExpired && (
 											<button className="loan-action-btn" style={{background:'#2196f3',color:'#fff',border:'none',padding:'12px',borderRadius:8,cursor:'pointer',fontSize:'0.95rem',fontWeight:600}} onClick={() => onShowQr(loan)}>
 												🔍 Tunjukkan Kode Pinjam
 											</button>
 										)}
 										
-										{/* Button Upload Bukti - untuk status Diambil atau Sedang Dipinjam */}
-										{setUploadModalLoan && (loan.status === 'Diambil' || loan.status === 'Sedang Dipinjam') && (
+										{/* Button Upload Bukti - untuk status dipinjam (Sedang Dipinjam) */}
+										{setUploadModalLoan && canUploadReturnProof(loan.status) && (
 											<button className="loan-action-btn" style={{background:'#4caf50',color:'#fff',border:'none',padding:'12px',borderRadius:8,cursor:'pointer',fontSize:'0.95rem',fontWeight:600}} onClick={() => setUploadModalLoan(loan)}>
 												📸 Upload Bukti Pengembalian
 											</button>
 										)}
 										
-										{(loan.status === 'Menunggu Persetujuan' || loan.status === 'Disetujui') && (
+										{/* Button Cancel - untuk status pending (Disetujui) */}
+										{isQRReady(loan.status) && (
 											<button
 												className="loan-action-btn"
 												style={{background:'#e74c3c',color:'#fff',border:'none',padding:'12px',borderRadius:8,cursor:'pointer',fontSize:'0.95rem',fontWeight:600}}

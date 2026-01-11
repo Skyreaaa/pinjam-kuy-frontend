@@ -87,30 +87,31 @@ exports.requestLoan = async (req, res) => {
     try {
         // Cek 1: Batas Maksimal Pinjaman (3 buku aktif)
         const activeLoansResult = await pool.query(
-            'SELECT COUNT(*) as count FROM loans WHERE user_id = $1 AND status IN ($2, $3, $4, $5)', 
-            [userId, 'Menunggu Persetujuan', 'Disetujui', 'Diambil', 'Sedang Dipinjam']
+            'SELECT COUNT(*) as count FROM loan WHERE id_user = $1 AND status IN ($2, $3)', 
+            [userId, 'pending', 'dipinjam']
         );
         if (parseInt(activeLoansResult.rows[0].count) >= 3) {
             return res.status(400).json({ message: 'Anda telah mencapai batas maksimal 3 pinjaman aktif/tertunda.' });
         }
         
-        // Cek 2: Ketersediaan Stok & Info Buku
+        // Cek 2: Ketersediaan Stok & Info Buku (PostgreSQL schema uses different column names)
         const bookResult = await pool.query(
-            'SELECT title, availablestock, lampiran, attachment_url FROM books WHERE id = $1', 
+            'SELECT judul, stok, description FROM books WHERE id_buku = $1', 
             [bookId]
         );
-        if (bookResult.rows.length === 0 || bookResult.rows[0].availablestock <= 0) {
+        );
+        if (bookResult.rows.length === 0 || bookResult.rows[0].stok <= 0) {
             return res.status(400).json({ message: 'Stok buku tidak tersedia.' });
         }
         
         const book = bookResult.rows[0];
-        const isDigitalBook = book.lampiran && book.lampiran !== 'Tidak Ada' && book.attachment_url;
+        const isDigitalBook = false; // Assume no digital books in PostgreSQL version for now
         
         // Cek 3: Duplikasi Permintaan (hanya untuk buku fisik)
         if (!isDigitalBook) {
             const duplicateResult = await pool.query(
-                'SELECT id FROM loans WHERE user_id = $1 AND book_id = $2 AND status IN ($3, $4, $5, $6)', 
-                [userId, bookId, 'Menunggu Persetujuan', 'Disetujui', 'Diambil', 'Sedang Dipinjam']
+                'SELECT id_pinjam FROM loan WHERE id_user = $1 AND id_buku = $2 AND status IN ($3, $4)', 
+                [userId, bookId, 'pending', 'dipinjam']
             );
             if (duplicateResult.rows.length > 0) {
                 return res.status(400).json({ message: 'Anda sudah meminjam / mengajukan buku fisik ini. Kembalikan buku terlebih dahulu sebelum meminjam lagi.' });
@@ -140,32 +141,31 @@ exports.requestLoan = async (req, res) => {
         const loanDateStr = format(now, 'yyyy-MM-dd HH:mm:ss');
         const approvedAtStr = format(now, 'yyyy-MM-dd HH:mm:ss');
 
-        // Insert loan record (PostgreSQL) - Status langsung 'Disetujui' dengan loanDate & approvedAt
+        // Insert loan record (PostgreSQL) - Status langsung 'pending' 
         const insertSQL = `
-            INSERT INTO loans (user_id, book_id, loandate, expectedreturndate, status, kodepinjam, purpose, approvedat) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
-            RETURNING id
+            INSERT INTO loan (id_user, id_buku, tanggal_pinjam, tanggal_kembali, status, kodepinjam, purpose) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7) 
+            RETURNING id_pinjam as id
         `;
         const result = await pool.query(insertSQL, [
             userId, 
             bookId,
             loanDateStr,
             expectedReturnDate, 
-            'Disetujui', // Langsung disetujui otomatis
+            'pending', // Status PostgreSQL enum
             kodePinjam, 
-            purpose || null,
-            approvedAtStr
+            purpose || null
         ]);
 
-        // Kurangi Stok Tersedia
-        await pool.query('UPDATE books SET availablestock = availablestock - 1 WHERE id = $1', [bookId]);
+        // Kurangi Stok Tersedia (PostgreSQL schema uses 'stok' not 'availablestock')
+        await pool.query('UPDATE books SET stok = stok - 1 WHERE id_buku = $1', [bookId]);
 
         const loanPayload = {
             id: result.rows[0].id,
-            bookTitle: book.title,
+            bookTitle: book.judul || book.title,
             loanDate: loanDateStr, // QR sudah aktif
             expectedReturnDate,
-            status: 'Disetujui',
+            status: 'pending',
             kodePinjam,
         };
         if (purpose) loanPayload.purpose = purpose;
@@ -176,7 +176,7 @@ exports.requestLoan = async (req, res) => {
             if (io) {
                 // Notif ke user bahwa QR code sudah siap
                 io.to(`user_${userId}`).emit('notification', {
-                    message: `QR Code untuk buku "${book.title}" sudah siap! Tunjukkan ke petugas untuk mengambil buku.`,
+                    message: `QR Code untuk buku "${book.judul || book.title}" sudah siap! Tunjukkan ke petugas untuk mengambil buku.`,
                     type: 'success',
                     loanId: result.rows[0].id,
                     kodePinjam: kodePinjam
@@ -184,7 +184,7 @@ exports.requestLoan = async (req, res) => {
                 
                 // Notif ke admin bahwa ada pinjaman baru yang siap di-scan
                 io.to('admins').emit('notification', {
-                    message: `Pinjaman baru: Buku "${book.title}" oleh user ID ${userId}. QR: ${kodePinjam}`,
+                    message: `Pinjaman baru: Buku "${book.judul || book.title}" oleh user ID ${userId}. QR: ${kodePinjam}`,
                     type: 'info',
                 });
             }
@@ -655,46 +655,80 @@ exports.scanLoan = async (req, res) => {
     const pool = getDBPool(req);
     const { kodePinjam } = req.body;
     if (!kodePinjam) return res.status(400).json({ message:'kodePinjam diperlukan.' });
+    
     try {
-        const _pgResult = await pool.query(`
-            SELECT l.id, l.status, l.loanDate, l.approvedAt, l.book_id as bookId, l.user_id as userId,
-                   b.title as "bookTitle",
-                   u.username as "borrowerName"
-            FROM loans l
-            LEFT JOIN books b ON l.book_id = b.id
-            LEFT JOIN users u ON l.user_id = u.id
-            WHERE l.kodePinjam = $1 LIMIT 1
-        `, [kodePinjam]);
-        const rows = _pgResult.rows;
-        if (!rows.length) return res.status(404).json({ message:'Kode tidak ditemukan.' });
-        const loan = rows[0];
+        console.log('[SCAN_LOAN] Scanning kodePinjam:', kodePinjam);
         
-        // Jika status bukan 'Disetujui', kembalikan error dengan detail
-        if (loan.status !== 'Disetujui') {
+        const _pgResult = await pool.query(`
+            SELECT 
+                l.id_pinjam as id, 
+                l.status, 
+                l.tanggal_pinjam as "loanDate", 
+                l.created_at as "approvedAt", 
+                l.id_buku as "bookId", 
+                l.id_user as "userId",
+                b.judul as "bookTitle",
+                u.fullname as "borrowerName",
+                u.username
+            FROM loan l
+            LEFT JOIN books b ON l.id_buku = b.id_buku
+            LEFT JOIN "user" u ON l.id_user = u.id_user
+            WHERE l.kodepinjam = $1 LIMIT 1
+        `, [kodePinjam]);
+        console.log('[SCAN_LOAN] Query result:', _pgResult.rows.length, 'rows found');
+        const rows = _pgResult.rows;
+        if (!rows.length) {
+            console.log('[SCAN_LOAN] QR code not found:', kodePinjam);
+            return res.status(404).json({ 
+                message:'Kode QR tidak ditemukan dalam sistem.', 
+                kodePinjam 
+            });
+        }
+        
+        const loan = rows[0];
+        console.log('[SCAN_LOAN] Found loan:', { id: loan.id, status: loan.status, bookTitle: loan.bookTitle });
+        
+        // Jika status bukan 'pending' (status 'dipinjam' = sedang dipinjam), kembalikan error dengan detail
+        if (loan.status !== 'pending') {
+            console.log('[SCAN_LOAN] Invalid status:', loan.status);
             return res.status(400).json({ 
-                message: `Status sekarang '${loan.status}'. Hanya 'Disetujui' yang bisa discan untuk pengambilan.`,
+                message: `Status sekarang '${loan.status}'. Hanya 'pending' yang bisa discan untuk pengambilan.`,
                 bookTitle: loan.bookTitle || 'Tidak Diketahui',
-                borrowerName: loan.borrowerName || 'Tidak Diketahui',
+                borrowerName: loan.borrowerName || loan.username || 'Tidak Diketahui',
                 currentStatus: loan.status
             });
         }
         
-        // Check QR expiry based on approvedAt + 24h
+        // Check QR expiry based on created_at + 24h (PostgreSQL doesn't have approvedAt concept)
         if (loan.approvedAt) {
             const approvedTime = new Date(loan.approvedAt).getTime();
             const nowTime = Date.now();
-            if (nowTime > approvedTime + 24 * 60 * 60 * 1000) {
+            const expiryTime = approvedTime + 24 * 60 * 60 * 1000; // 24 hours
+            
+            if (nowTime > expiryTime) {
+                console.log('[SCAN_LOAN] QR expired:', { approvedAt: loan.approvedAt, nowTime, expiryTime });
+                // Auto-cancel expired QR
+                await pool.query(`UPDATE loan SET status = 'ditolak' WHERE id_pinjam = $1`, [loan.id]);
+                
+                // Return stock (increment stok in books table)
+                await pool.query(`UPDATE books SET stok = stok + 1 WHERE id_buku = $1`, [loan.bookId]);
+                
                 return res.status(400).json({ 
-                    message:'QR Expired. Kode pinjam sudah melewati masa berlaku 24 jam sejak disetujui.',
+                    message: 'QR Expired! Kode QR sudah kedaluwarsa (lebih dari 24 jam). Silakan buat pinjaman baru.',
                     bookTitle: loan.bookTitle || 'Tidak Diketahui',
-                    borrowerName: loan.borrowerName || 'Tidak Diketahui',
-                    approvedAt: loan.approvedAt
+                    borrowerName: loan.borrowerName || loan.username || 'Tidak Diketahui'
                 });
             }
         }
         
+        console.log('[SCAN_LOAN] Updating loan status to dipinjam...');
         const now = new Date();
-        await pool.query("UPDATE loans SET status = 'Diambil', loanDate = $1 WHERE id = $2", [now, loan.id]);
+        
+        // Update status dari 'pending' ke 'dipinjam' dan set tanggal_pinjam
+        await pool.query(
+            `UPDATE loan SET status = 'dipinjam', tanggal_pinjam = $1 WHERE id_pinjam = $2`,
+            [now, loan.id]
+        );
         
         // Kirim notifikasi real-time ke user via Socket.IO
         try {
@@ -733,10 +767,10 @@ exports.scanLoan = async (req, res) => {
         
         res.json({ 
             success: true, 
-            message: 'Scan berhasil. Buku ditandai Diambil.', 
+            message: 'Scan berhasil. Buku ditandai sedang dipinjam.', 
             loanId: loan.id,
             bookTitle: loan.bookTitle || 'Tidak Diketahui',
-            borrowerName: loan.borrowerName || 'Tidak Diketahui',
+            borrowerName: loan.borrowerName || loan.username || 'Tidak Diketahui',
             loanDate: now.toISOString()
         });
     } catch (e){
@@ -1524,125 +1558,171 @@ exports.getUserActivityHistory = async (req, res) => {
         console.log('[ACTIVITY_HISTORY] Fetching activities since:', twoMonthsAgo);
         
         // Get all loans from last 2 months with book info and admin rejection proof
-        const loansResult = await pool.query(
-            `SELECT 
-                l.id,
-                l.kodepinjam AS "kodePinjam",
-                l.loandate AS "loanDate",
-                l.expectedreturndate AS "expectedReturnDate",
-                l.actualreturndate AS "actualReturnDate",
-                l.status,
-                COALESCE(l.fineamount, 0) AS "fineAmount",
-                l.finepaid AS "finePaid",
-                COALESCE(l.finereason, '') AS "fineReason",
-                COALESCE(l.rejectionreason, '') AS "rejectionReason",
-                l.rejectiondate AS "rejectionDate",
-                COALESCE(l.adminrejectionproof, '') AS "adminRejectionProof",
-                l.returnproofurl AS "returnProofUrl",
-                l.returnproofmetadata AS "returnProofMetadata",
-                l.createdat AS "createdAt",
-                b.title AS "bookTitle",
-                b.author,
-                b.kodebuku AS "kodeBuku"
-             FROM loans l
-             JOIN books b ON l.book_id = b.id
-             WHERE l.user_id = $1 
-                AND l.createdat >= $2
-             ORDER BY l.createdat DESC`,
-            [userId, twoMonthsAgo]
-        );
+        let loansResult;
+        try {
+            loansResult = await pool.query(
+                `SELECT 
+                    l.id_pinjam AS "id",
+                    l.kodepinjam AS "kodePinjam",
+                    l.tanggal_pinjam AS "loanDate",
+                    l.tanggal_kembali AS "expectedReturnDate",
+                    l.returnproofuploadedAt AS "actualReturnDate",
+                    l.status,
+                    COALESCE(l.totalfine, 0) AS "fineAmount",
+                    CASE WHEN l.finepaymentstatus = 'paid' THEN true ELSE false END AS "finePaid",
+                    COALESCE(l.fineforcostbook::text, '') AS "fineReason",
+                    COALESCE(l.rejectionreason, '') AS "rejectionReason",
+                    l.rejectedat AS "rejectionDate",
+                    '' AS "adminRejectionProof",
+                    l.returnproofphoto AS "returnProofUrl",
+                    '{}' AS "returnProofMetadata",
+                    l.created_at AS "createdAt",
+                    b.judul AS "bookTitle",
+                    b.pengarang AS "author",
+                    b.isbn AS "kodeBuku"
+                 FROM loan l
+                 JOIN books b ON l.id_buku = b.id_buku
+                 WHERE l.id_user = $1 
+                    AND l.created_at >= $2
+                 ORDER BY l.created_at DESC`,
+                [userId, twoMonthsAgo]
+            );
+        } catch (loansError) {
+            console.error('[ACTIVITY_HISTORY] Error fetching loans:', loansError);
+            return res.status(500).json({ 
+                success: false, 
+                message: 'Gagal memuat riwayat peminjaman',
+                error: loansError.message 
+            });
+        }
         
         console.log('[ACTIVITY_HISTORY] Found loans:', loansResult.rows.length);
         
         // Get fine payments from last 2 months
-        const paymentsResult = await pool.query(
-            `SELECT 
-                id,
-                method,
-                amount_total AS "amountTotal",
-                status,
-                created_at AS "createdAt",
-                verified_at AS "verifiedAt",
-                admin_notes AS "adminNotes"
-             FROM fine_payments
-             WHERE user_id = $1
-                AND created_at >= $2
-             ORDER BY created_at DESC`,
-            [userId, twoMonthsAgo]
-        );
+        let paymentsResult;
+        try {
+            paymentsResult = await pool.query(
+                `SELECT 
+                    id,
+                    'fine_payment' AS "method",
+                    amount_paid AS "amountTotal",
+                    CASE WHEN approved_at IS NOT NULL THEN 'verified' ELSE 'pending' END AS "status",
+                    submitted_at AS "createdAt",
+                    approved_at AS "verifiedAt",
+                    '' AS "adminNotes"
+                 FROM loan_fine_payments
+                 WHERE id_pinjam IN (SELECT id_pinjam FROM loan WHERE id_user = $1)
+                    AND submitted_at >= $2
+                 ORDER BY submitted_at DESC`,
+                [userId, twoMonthsAgo]
+            );
+        } catch (paymentsError) {
+            console.error('[ACTIVITY_HISTORY] Error fetching payments:', paymentsError);
+            // Continue without payments if table doesn't exist
+            paymentsResult = { rows: [] };
+        }
         
         console.log('[ACTIVITY_HISTORY] Found payments:', paymentsResult.rows.length);
         
         // Combine and format activity data
         const activities = [];
         
-        // Add loan activities
-        loansResult.rows.forEach(loan => {
-            // Loan request activity
-            activities.push({
-                type: 'loan_request',
-                date: loan.createdAt,
-                loanId: loan.id,
-                kodePinjam: loan.kodePinjam,
-                bookTitle: loan.bookTitle,
-                author: loan.author,
-                status: loan.status,
-                description: `Meminjam buku "${loan.bookTitle}"`
-            });
-            
-            // Return activity if returned
-            if (loan.actualReturnDate) {
+        // Add loan activities with error handling
+        try {
+            loansResult.rows.forEach(loan => {
+                // Loan request activity
                 activities.push({
-                    type: 'return',
-                    date: loan.actualReturnDate,
+                    type: 'loan_request',
+                    date: loan.createdAt,
                     loanId: loan.id,
-                    kodePinjam: loan.kodePinjam,
-                    bookTitle: loan.bookTitle,
-                    author: loan.author,
-                    status: loan.status,
-                    fineAmount: loan.fineAmount,
-                    finePaid: loan.finePaid,
-                    fineReason: loan.fineReason,
-                    returnProofUrl: loan.returnProofUrl,
-                    returnProofMetadata: loan.returnProofMetadata,
-                    description: `Mengembalikan buku "${loan.bookTitle}"${loan.fineAmount && loan.fineAmount > 0 ? ` (Denda: Rp ${loan.fineAmount.toLocaleString('id-ID')})` : ''}`
+                    kodePinjam: loan.kodePinjam || '',
+                    bookTitle: loan.bookTitle || 'Judul tidak tersedia',
+                    author: loan.author || 'Penulis tidak tersedia',
+                    status: loan.status || 'Unknown',
+                    description: `Meminjam buku "${loan.bookTitle || 'Judul tidak tersedia'}"`
                 });
-            }
-            
-            // Return rejection activity if rejected by admin
-            if (loan.rejectionDate && loan.rejectionReason) {
-                activities.push({
-                    type: 'return_rejected',
-                    date: loan.rejectionDate,
-                    loanId: loan.id,
-                    kodePinjam: loan.kodePinjam,
-                    bookTitle: loan.bookTitle,
-                    author: loan.author,
-                    status: 'Pengembalian Ditolak',
-                    rejectionReason: loan.rejectionReason,
-                    adminRejectionProof: loan.adminRejectionProof,
-                    description: `Pengembalian buku "${loan.bookTitle}" ditolak admin${loan.rejectionReason ? `: ${loan.rejectionReason}` : ''}`
-                });
-            }
-        });
-        
-        // Add fine payment activities
-        paymentsResult.rows.forEach(payment => {
-            activities.push({
-                type: 'fine_payment',
-                date: payment.createdAt,
-                paymentId: payment.id,
-                method: payment.method,
-                amount: payment.amountTotal,
-                status: payment.status,
-                verifiedAt: payment.verifiedAt,
-                adminNotes: payment.adminNotes,
-                description: `Pembayaran denda Rp ${payment.amountTotal ? payment.amountTotal.toLocaleString('id-ID') : '0'} (${payment.method === 'qris' ? 'QRIS' : payment.method === 'bank_transfer' ? 'Transfer Bank' : 'Tunai'})`
+                
+                // Return activity if returned (status 'dikembalikan')
+                if (loan.actualReturnDate || loan.status === 'dikembalikan') {
+                    activities.push({
+                        type: 'return',
+                        date: loan.actualReturnDate || loan.createdAt,
+                        loanId: loan.id,
+                        kodePinjam: loan.kodePinjam || '',
+                        bookTitle: loan.bookTitle || 'Judul tidak tersedia',
+                        author: loan.author || 'Penulis tidak tersedia',
+                        status: loan.status || 'Unknown',
+                        fineAmount: loan.fineAmount || 0,
+                        finePaid: loan.finePaid || false,
+                        fineReason: loan.fineReason || '',
+                        returnProofUrl: loan.returnProofUrl || '',
+                        returnProofMetadata: loan.returnProofMetadata || null,
+                        description: `Mengembalikan buku "${loan.bookTitle || 'Judul tidak tersedia'}"${loan.fineAmount && loan.fineAmount > 0 ? ` (Denda: Rp ${loan.fineAmount.toLocaleString('id-ID')})` : ''}`
+                    });
+                }
+                
+                // Return rejection activity if rejected by admin (status 'ditolak')
+                if (loan.rejectionDate && loan.rejectionReason && loan.status === 'ditolak') {
+                    activities.push({
+                        type: 'return_rejected',
+                        date: loan.rejectionDate,
+                        loanId: loan.id,
+                        kodePinjam: loan.kodePinjam || '',
+                        bookTitle: loan.bookTitle || 'Judul tidak tersedia',
+                        author: loan.author || 'Penulis tidak tersedia',
+                        status: 'Pengembalian Ditolak',
+                        rejectionReason: loan.rejectionReason || '',
+                        adminRejectionProof: loan.adminRejectionProof || '',
+                        description: `Pengembalian buku "${loan.bookTitle || 'Judul tidak tersedia'}" ditolak admin${loan.rejectionReason ? `: ${loan.rejectionReason}` : ''}`
+                    });
+                }
             });
-        });
+        } catch (loanProcessError) {
+            console.error('[ACTIVITY_HISTORY] Error processing loans:', loanProcessError);
+            // Continue processing even if some loans fail
+        }
         
-        // Sort all activities by date (newest first)
-        activities.sort((a, b) => new Date(b.date) - new Date(a.date));
+        // Add fine payment activities with error handling
+        try {
+            paymentsResult.rows.forEach(payment => {
+                const amount = payment.amountTotal || 0;
+                const method = payment.method || 'unknown';
+                
+                activities.push({
+                    type: 'fine_payment',
+                    date: payment.createdAt,
+                    paymentId: payment.id,
+                    method: method,
+                    amount: amount,
+                    status: payment.status || 'unknown',
+                    verifiedAt: payment.verifiedAt || null,
+                    adminNotes: payment.adminNotes || '',
+                    description: `Pembayaran denda Rp ${amount.toLocaleString('id-ID')} (${method === 'qris' ? 'QRIS' : method === 'bank_transfer' ? 'Transfer Bank' : method === 'cash' ? 'Tunai' : method})`
+                });
+            });
+        } catch (paymentProcessError) {
+            console.error('[ACTIVITY_HISTORY] Error processing payments:', paymentProcessError);
+            // Continue processing even if some payments fail
+        }
+        
+        // Sort all activities by date (newest first) with error handling
+        try {
+            activities.sort((a, b) => {
+                const dateA = new Date(a.date);
+                const dateB = new Date(b.date);
+                
+                if (isNaN(dateA.getTime()) && isNaN(dateB.getTime())) return 0;
+                if (isNaN(dateA.getTime())) return 1;
+                if (isNaN(dateB.getTime())) return -1;
+                
+                return dateB - dateA;
+            });
+        } catch (sortError) {
+            console.error('[ACTIVITY_HISTORY] Error sorting activities:', sortError);
+            // If sorting fails, return unsorted activities
+        }
+        
+        console.log('[ACTIVITY_HISTORY] Successfully processed', activities.length, 'activities');
         
         res.json({
             success: true,
@@ -1653,10 +1733,12 @@ exports.getUserActivityHistory = async (req, res) => {
         });
     } catch (error) {
         console.error('❌ [getUserActivityHistory] Error:', error);
+        console.error('❌ [getUserActivityHistory] Stack:', error.stack);
         res.status(500).json({ 
             success: false, 
             message: 'Gagal memuat riwayat aktivitas', 
-            error: error.message 
+            error: error.message,
+            details: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 };
