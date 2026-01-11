@@ -58,7 +58,7 @@ const PaymentDetailModal: React.FC<{
 		return method;
 	};
 
-	// Get full proof URL - handle both Cloudinary public_id and legacy local path
+	// Get full proof URL - convert to Cloudinary URL
 	const getProofUrl = (url?: string) => {
 		if (!url) return null;
 		
@@ -67,20 +67,14 @@ const PaymentDetailModal: React.FC<{
 		
 		const cloudName = 'dxew9tloz';
 		
-		// Legacy format: /uploads/fine-proofs/FILENAME -> convert to Cloudinary URL
-		if (url.startsWith('/uploads/fine-proofs/')) {
-			const filename = url.replace('/uploads/fine-proofs/', '');
-			return `https://res.cloudinary.com/${cloudName}/image/upload/fine-proofs/${filename}`;
-		}
+		// Clean the path: remove /uploads/ prefix and any duplicate folders
+		let publicId = url.replace(/^\/uploads\//, '').replace(/^uploads\//, '');
 		
-		// Cloudinary public_id format (e.g., "fine-proofs/abc123")
-		if (!url.startsWith('/') && !url.startsWith('uploads')) {
-			return `https://res.cloudinary.com/${cloudName}/image/upload/${url}`;
-		}
+		// Remove duplicate fine-proofs/ if exists
+		publicId = publicId.replace(/^fine-proofs\/fine-proofs\//, 'fine-proofs/');
 		
-		// Other formats - try Cloudinary
-		const cleanPath = url.replace(/^\/?(uploads\/)?/, '');
-		return `https://res.cloudinary.com/${cloudName}/image/upload/${cleanPath}`;
+		// Construct Cloudinary URL with the clean public_id
+		return `https://res.cloudinary.com/${cloudName}/image/upload/${publicId}`;
 	};
 
 	const proofImageUrl = getProofUrl(payment.proof_url);
