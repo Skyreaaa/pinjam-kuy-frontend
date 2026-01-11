@@ -153,17 +153,17 @@ const LoansPage: React.FC = () => {
 	};
 
 	// Filter loans for active and history
-	// Tab Aktif: Disetujui, Diambil, Sedang Dipinjam, Terlambat
-	// Tab Riwayat: Siap Dikembalikan (sudah upload bukti), Dikembalikan, Selesai, Dibatalkan
+	// Tab Aktif: Menunggu Persetujuan, Disetujui, Diambil, Sedang Dipinjam, Terlambat
+	// Tab Riwayat: Siap Dikembalikan (sudah upload bukti), Dikembalikan, Selesai, Ditolak
 	const activeLoans = loans.filter(l => 
 		l.status !== 'Selesai' && 
-		l.status !== 'Dibatalkan User' && 
+		l.status !== 'Ditolak' && 
 		l.status !== 'Siap Dikembalikan' &&
 		l.status !== 'Dikembalikan'
 	);
 	const historyLoans = loans.filter(l => 
 		l.status === 'Selesai' || 
-		l.status === 'Dibatalkan User' || 
+		l.status === 'Ditolak' || 
 		l.status === 'Siap Dikembalikan' ||
 		l.status === 'Dikembalikan'
 	);

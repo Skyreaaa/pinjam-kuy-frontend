@@ -355,18 +355,20 @@ exports.cancelLoan = async (req, res) => {
             return res.status(400).json({ message: 'Peminjaman tidak dapat dibatalkan pada status ini.' });
         }
 
-        // Update status menjadi Dibatalkan User (cancelled by user)
+        // Update status menjadi Ditolak (cancelled by user)
         await pool.query(
             'UPDATE loans SET status = $1 WHERE id = $2',
-            ['Dibatalkan User', loanId]
+            ['Ditolak', loanId]
         );
 
         // Kembalikan stok buku
         await pool.query(
-            'UPDATE books SET availableStock = availableStock + 1 WHERE id = $1',
+            'UPDATE books SET availablestock = availablestock + 1 WHERE id = $1',
             [loan.book_id]
         );
 
+        console.log(`✅ [cancelLoan] Loan ${loanId} cancelled successfully by user ${userId}`);
+        
         // No commit
         res.json({ success: true, message: 'Peminjaman berhasil dibatalkan.' });
     } catch (error) {
