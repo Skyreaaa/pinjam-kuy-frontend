@@ -52,7 +52,7 @@ function RequireAuth({ children, role }: { children: JSX.Element, role?: 'admin'
     return <Navigate to="/home" replace />;
   }
   if (role === 'user' && userRole !== 'user') {
-    return <Navigate to="/admin-users" replace />;
+    return <Navigate to="/admin-dashboard" replace />;
   }
   return children;
 }
@@ -168,7 +168,7 @@ function App() {
           userData={userData}
           onNavigateToLogin={() => window.location.href = '/login'}
           onNavigateToDashboard={() => {
-            if (userData?.role === 'admin') window.location.href = '/admin-users';
+            if (userData?.role === 'admin') window.location.href = '/admin-dashboard';
             else window.location.href = '/home';
           }}
           onNavigateToCollection={() => window.location.href = '/collection'}

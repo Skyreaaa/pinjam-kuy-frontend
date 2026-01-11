@@ -112,8 +112,8 @@ const DashboardState: React.FC = () => {
   // Data tren per kategori (dummy, backend perlu support jika ingin harian/tahunan)
   const userTrend = stats.userTrends || Array(monthLabels.length).fill(stats.totalUsers);
   const bookTrend = stats.bookTrends || Array(monthLabels.length).fill(stats.totalBooks);
-  const loanTrend = monthlyActivity.loans.map((item: any) => item.loanCount);
-  const returnTrend = monthlyActivity.returns.map((item: any) => item.returnCount);
+  const loanTrend = Array.isArray(monthlyActivity.loans) ? monthlyActivity.loans.map((item: any) => item.loanCount) : [];
+  const returnTrend = Array.isArray(monthlyActivity.returns) ? monthlyActivity.returns.map((item: any) => item.returnCount) : [];
   const fineTrend = stats.fineTrends || Array(monthLabels.length).fill(stats.totalFines || 0);
 
   // Data untuk multi-line chart (semua tren dalam satu chart)
