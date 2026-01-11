@@ -9,7 +9,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaSyncAlt, FaListUl, FaHistory, FaCalendarAlt, FaClock, FaMapMarkerAlt, FaMoneyBillWave } from 'react-icons/fa';
 import UploadReturnProofModal from './UploadReturnProofModal';
-import { loanApi } from '../../services/api';
+import { loanApi, userApi } from '../../services/api';
 import { Loan } from '../../types';
 import QRCodeDisplay from '../common/QRCodeDisplay';
 import { getSocket } from '../../services/socket';
@@ -106,7 +106,6 @@ const LoansPage: React.FC = () => {
 			
 			setUploadProgress(30);
 			
-			const token = sessionStorage.getItem('token');
 			console.log('[UPLOAD] Uploading to backend:', {
 				loanId: uploadModalLoan.id,
 				fileSize: file.size,
@@ -121,21 +120,21 @@ const LoansPage: React.FC = () => {
 				});
 			}, 300);
 			
-			const res = await fetch(`http://localhost:5000/api/loans/ready-to-return/${uploadModalLoan.id}`, {
-				method: 'POST',
-				headers: {
-					'Authorization': `Bearer ${token}`,
-				},
-				body: formData,
-			});
+			// Use loanApi instead of hardcoded fetch
+			const metadata = {
+				lat: meta.lat,
+				lng: meta.lng,
+				accuracy: meta.accuracy,
+				time: meta.time
+			};
+			const data = await loanApi.markReadyToReturn(uploadModalLoan.id, file, metadata);
 			
 			clearInterval(progressInterval);
 			setUploadProgress(90);
 			
-			const data = await res.json();
 			console.log('[UPLOAD] Backend response:', data);
 			
-			if (res.ok && data.success) {
+			if (data.success) {
 				setUploadProgress(100);
 				setUploadSuccess(true);
 				
@@ -307,14 +306,7 @@ const LoansPage: React.FC = () => {
 															onClick={async () => {
 																setCancelLoading(true);
 																try {
-																	const token = sessionStorage.getItem('token');
-																	await fetch(`http://localhost:5000/api/loans/${cancelModalLoan.id}/cancel`, {
-																		method: 'POST',
-																		headers: {
-																			'Authorization': `Bearer ${token}`,
-																			'Content-Type': 'application/json'
-																		}
-																	});
+																	await userApi.post(`/loans/${cancelModalLoan.id}/cancel`);
 																	setCancelModalLoan(null);
 																	fetchLoans();
 																} catch (error) {
@@ -529,5 +521,6 @@ const LoansPage: React.FC = () => {
 };
 
 export default LoansPage;
+
 
 
