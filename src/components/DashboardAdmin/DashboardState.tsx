@@ -112,8 +112,8 @@ const DashboardState: React.FC = () => {
   // Data tren per kategori (dummy, backend perlu support jika ingin harian/tahunan)
   const userTrend = stats.userTrends || Array(monthLabels.length).fill(stats.totalUsers);
   const bookTrend = stats.bookTrends || Array(monthLabels.length).fill(stats.totalBooks);
-  const loanTrend = Array.isArray(monthlyActivity.loans) ? monthlyActivity.loans.map((item: any) => item.loanCount) : [];
-  const returnTrend = Array.isArray(monthlyActivity.returns) ? monthlyActivity.returns.map((item: any) => item.returnCount) : [];
+  const loanTrend = Array.isArray(monthlyActivity.loans) ? monthlyActivity.loans.map((item: any) => item.loancount || item.loanCount) : [];
+  const returnTrend = Array.isArray(monthlyActivity.returns) ? monthlyActivity.returns.map((item: any) => item.returncount || item.returnCount) : [];
   const fineTrend = stats.fineTrends || Array(monthLabels.length).fill(stats.totalFines || 0);
 
   // Data untuk multi-line chart (semua tren dalam satu chart)
@@ -227,7 +227,7 @@ const DashboardState: React.FC = () => {
           <ol style={{ margin: 0, paddingLeft: 18 }}>
             {Array.isArray(topBooks) && topBooks.map((book, idx) => (
               <li key={book.id}>
-                <b>{book.title}</b> oleh {book.author} <span style={{ color: '#888' }}>({book.category})</span> — <span style={{ color: '#36b9cc' }}>{book.borrowCount}x dipinjam</span>
+                <b>{book.title}</b> oleh {book.author} <span style={{ color: '#888' }}>({book.category})</span> — <span style={{ color: '#36b9cc' }}>{book.borrowcount || book.borrowCount}x dipinjam</span>
               </li>
             ))}
           </ol>
