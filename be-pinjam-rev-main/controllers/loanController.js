@@ -1911,6 +1911,7 @@ exports.verifyFinePayment = async (req, res) => {
         if (status === 'approved') {
             const loanIds = JSON.parse(payment.loan_ids);
             
+            // Update finepaid for each loan
             for (const loanId of loanIds) {
                 await pool.query(
                     `UPDATE loans SET finepaid = true WHERE id = $1`,
@@ -1918,7 +1919,22 @@ exports.verifyFinePayment = async (req, res) => {
                 );
             }
             
-            console.log(`✅ [verifyFinePayment] Approved payment ${paymentId}, updated ${loanIds.length} loans`);
+            // Recalculate user's unpaid fines (denda_unpaid)
+            const unpaidResult = await pool.query(
+                `SELECT COALESCE(SUM(fineamount), 0) as total_unpaid 
+                 FROM loans 
+                 WHERE user_id = $1 AND fineamount > 0 AND finepaid = false`,
+                [payment.user_id]
+            );
+            const newUnpaidTotal = Number(unpaidResult.rows[0]?.total_unpaid) || 0;
+            
+            // Update denda_unpaid in users table
+            await pool.query(
+                `UPDATE users SET denda_unpaid = $1 WHERE id = $2`,
+                [newUnpaidTotal, payment.user_id]
+            );
+            
+            console.log(`✅ [verifyFinePayment] Approved payment ${paymentId}, updated ${loanIds.length} loans, new unpaid total: ${newUnpaidTotal}`);
         }
         
         // Send notification to user

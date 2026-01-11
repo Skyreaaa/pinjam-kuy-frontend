@@ -243,8 +243,8 @@ const Home: React.FC<HomeProps> = ({
           </h2> 
         </div>
 
-        {/* Card: Total Denda (klik untuk ke halaman pinjaman juga - bisa fokus tab aktif/historis) */} 
-  <div className="info-card card late-fee clickable" onClick={() => { localStorage.setItem('initialBorrowTab','history'); localStorage.setItem('openLoansView','1'); onMenuClick('borrowing-page'); }}> 
+        {/* Card: Total Denda (klik untuk ke halaman pembayaran denda) */} 
+  <div className="info-card card late-fee clickable" onClick={() => onMenuClick('fines')}> 
           <div className="info-icon">💸</div>
           <p className="info-label">Denda Aktif</p>
           <h2 className="info-value" title={`Denda yang belum dibayar`}>

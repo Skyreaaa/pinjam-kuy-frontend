@@ -386,4 +386,30 @@ router.post('/returns/reject', uploadAdminRejection.single('adminProof'), loanCo
 router.get('/fine-payments', loanController.getAllFinePayments);
 router.post('/fine-payments/:id/verify', loanController.verifyFinePayment);
 
+// === RESET FINES ===
+router.post('/reset-fines/:userId', async (req, res) => {
+    const pool = req.app.get('dbPool');
+    const userId = parseInt(req.params.userId);
+    
+    try {
+        // Reset all fines for user
+        await pool.query(
+            `UPDATE users SET denda = 0, denda_unpaid = 0 WHERE id = $1`,
+            [userId]
+        );
+        
+        // Mark all loans as paid
+        await pool.query(
+            `UPDATE loans SET finepaid = true WHERE user_id = $1 AND finepaid = false`,
+            [userId]
+        );
+        
+        console.log(`✅ [resetFines] Reset all fines for user ${userId}`);
+        res.json({ success: true, message: 'Denda berhasil direset.' });
+    } catch (e) {
+        console.error('❌ [resetFines] Error:', e);
+        res.status(500).json({ success: false, message: 'Gagal reset denda.' });
+    }
+});
+
 module.exports = router;
