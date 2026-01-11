@@ -51,8 +51,8 @@ const ActivityHistory: React.FC = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      if (response.success) {
-        setActivities(response.activities);
+      if (response.data.success) {
+        setActivities(response.data.activities);
       }
     } catch (err: any) {
       console.error('Failed to fetch activity history:', err);
