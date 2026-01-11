@@ -60,7 +60,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setLoading(true);
     try {
       const { token, userData } = await authApi.login(npm, password);
-      const redirectPath = userData && userData.role === 'admin' ? '/admin-dashboard' : '/home';
+      const redirectPath = userData && userData.role === 'admin' ? '/admin-users' : '/home';
       // Simpan token sesuai role
       if (userData.role === 'admin') {
         sessionStorage.setItem('admin_token', token);
