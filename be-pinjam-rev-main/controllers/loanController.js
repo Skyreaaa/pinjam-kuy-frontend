@@ -1461,9 +1461,21 @@ exports.submitFinePayment = async (req, res) => {
             }
             
             if (req.file) {
-                // Use Cloudinary URL from req.file.path (not local path)
-                proofUrl = req.file.path;
-                console.log('📸 [submitFinePayment] Uploaded proof to Cloudinary:', proofUrl);
+                // Debug: Log all file properties
+                console.log('📸 [submitFinePayment] File object:', JSON.stringify({
+                    path: req.file.path,
+                    filename: req.file.filename,
+                    originalname: req.file.originalname,
+                    mimetype: req.file.mimetype,
+                    size: req.file.size,
+                    fieldname: req.file.fieldname,
+                    secure_url: req.file.secure_url,
+                    url: req.file.url
+                }, null, 2));
+                
+                // Use Cloudinary URL - try path first, then secure_url, then url
+                proofUrl = req.file.path || req.file.secure_url || req.file.url;
+                console.log('📸 [submitFinePayment] Saved proofUrl:', proofUrl);
             } else {
                 return res.status(400).json({ message: 'Bukti transfer wajib diupload.' });
             }
