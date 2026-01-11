@@ -11,7 +11,7 @@ interface SidebarProps {
 
 const viewToPath: Record<AdminView, string> = {
   dashboard: '/admin-dashboard',
-  users: '/admin-user',
+  users: '/admin-users',
   books: '/admin-buku',
   active_loans: '/admin-peminjaman-aktif',
   returns_review: '/admin-pengembalian',

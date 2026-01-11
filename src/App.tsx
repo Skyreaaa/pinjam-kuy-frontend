@@ -261,7 +261,7 @@ function App() {
           }}
         />} />
         <Route path="/admin-dashboard" element={<RequireAuth role="admin"><AdminDashboard /></RequireAuth>} />
-        <Route path="/admin-user" element={<RequireAuth role="admin"><AdminDashboard initialView="users" /></RequireAuth>} />
+        <Route path="/admin-users" element={<RequireAuth role="admin"><AdminDashboard initialView="users" /></RequireAuth>} />
         <Route path="/admin-buku" element={<RequireAuth role="admin"><AdminDashboard initialView="books" /></RequireAuth>} />
         <Route path="/admin-peminjaman-aktif" element={<RequireAuth role="admin"><AdminDashboard initialView="active_loans" /></RequireAuth>} />
         <Route path="/admin-pengembalian" element={<RequireAuth role="admin"><AdminDashboard initialView="returns_review" /></RequireAuth>} />
