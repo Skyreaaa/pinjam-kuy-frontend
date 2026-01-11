@@ -301,44 +301,44 @@ const LoansPage: React.FC = () => {
 										❌ Batalkan Peminjaman
 									</button>
 								)}
-										{/* Modal Konfirmasi Batalkan Peminjaman */}
-										{cancelModalLoan && (
-											<div className="modal-overlay-v5" style={{zIndex:10001}}>
-												<div className="qr-modal-v5" style={{position:'relative',maxWidth:380}}>
-													<button className="close-button-v5" onClick={() => setCancelModalLoan(null)} style={{ position: 'absolute', top: 12, right: 12 }}>×</button>
-													<h3>Konfirmasi Pembatalan</h3>
-													<div style={{margin:'18px 0',fontSize:16}}>Anda yakin ingin membatalkan peminjaman buku <b>{cancelModalLoan.bookTitle}</b>?</div>
-													<div style={{display:'flex',gap:12,justifyContent:'center'}}>
-														<button
-															className="loan-action-btn"
-															style={{background:'#e74c3c',minWidth:120,fontWeight:700}}
-															disabled={cancelLoading}
-															onClick={async () => {
-																setCancelLoading(true);
-																try {
-																	await userApi.post(`/loans/${cancelModalLoan.id}/cancel`);
-																	setCancelModalLoan(null);
-																	fetchLoans();
-																} catch (error) {
-																	alert('Gagal membatalkan peminjaman');
-																}
-																setCancelLoading(false);
-															}}
-														>
-															Ya, Batalkan
-														</button>
-														<button
-															className="loan-action-btn"
-															style={{background:'#888',minWidth:100,fontWeight:700}}
-															disabled={cancelLoading}
-															onClick={() => setCancelModalLoan(null)}
-														>
-															Tidak Jadi
-														</button>
-													</div>
-												</div>
+								{/* Modal Konfirmasi Batalkan Peminjaman */}
+								{cancelModalLoan && (
+									<div className="modal-overlay-v5" style={{zIndex:10001}}>
+										<div className="qr-modal-v5" style={{position:'relative',maxWidth:380}}>
+											<button className="close-button-v5" onClick={() => setCancelModalLoan(null)} style={{ position: 'absolute', top: 12, right: 12 }}>×</button>
+											<h3>Konfirmasi Pembatalan</h3>
+											<div style={{margin:'18px 0',fontSize:16}}>Anda yakin ingin membatalkan peminjaman buku <b>{cancelModalLoan.bookTitle}</b>?</div>
+											<div style={{display:'flex',gap:12,justifyContent:'center'}}>
+												<button
+													className="loan-action-btn"
+													style={{background:'#e74c3c',minWidth:120,fontWeight:700}}
+													disabled={cancelLoading}
+													onClick={async () => {
+														setCancelLoading(true);
+														try {
+															await userApi.post(`/loans/${cancelModalLoan.id}/cancel`);
+															setCancelModalLoan(null);
+															fetchLoans();
+														} catch (error) {
+															alert('Gagal membatalkan peminjaman');
+														}
+														setCancelLoading(false);
+													}}
+												>
+													Ya, Batalkan
+												</button>
+												<button
+													className="loan-action-btn"
+													style={{background:'#888',minWidth:100,fontWeight:700}}
+													disabled={cancelLoading}
+													onClick={() => setCancelModalLoan(null)}
+												>
+													Tidak Jadi
+												</button>
 											</div>
-										)}
+										</div>
+									</div>
+								)}
 									</>
 								)}
 							</div>
