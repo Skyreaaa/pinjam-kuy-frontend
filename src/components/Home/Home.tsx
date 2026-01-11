@@ -244,7 +244,7 @@ const Home: React.FC<HomeProps> = ({
         </div>
 
         {/* Card: Total Denda (klik untuk ke halaman pinjaman juga - bisa fokus tab aktif/historis) */} 
-  <div className="info-card card late-fee clickable" onClick={() => { localStorage.setItem('initialBorrowTab','history'); localStorage.setItem('openLoansView','1'); onMenuClick('borrowing-page'); }}> 
+  <div className="info-card card late-fee clickable" onClick={() => { localStorage.setItem('initialBorrowTab','history'); localStorage.setItem('openLoansView','1'); onMenuClick('fines'); }}> 
           <div className="info-icon">💸</div>
           <p className="info-label">Denda Aktif</p>
           <h2 className="info-value" title={`Denda yang belum dibayar`}>
