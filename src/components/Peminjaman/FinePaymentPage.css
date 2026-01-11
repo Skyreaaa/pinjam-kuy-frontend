@@ -49,18 +49,77 @@
   gap: 12px;
 }
 
+.total-fine-info {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .total-fine-badge {
-  background: linear-gradient(135deg, #ff4d4f, #ff7875);
   color: white;
   padding: 12px 24px;
   border-radius: 12px;
   font-size: 18px;
-  box-shadow: 0 4px 12px rgba(255, 77, 79, 0.3);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.total-fine-badge.all {
+  background: linear-gradient(135deg, #52c41a, #73d13d);
+}
+
+.total-fine-badge.selected {
+  background: linear-gradient(135deg, #1890ff, #40a9ff);
 }
 
 .total-fine-badge strong {
   font-size: 24px;
   margin-left: 8px;
+}
+
+/* Selection Controls */
+.selection-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #f0f2f5;
+  border-radius: 8px;
+}
+
+.btn-select-all {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #1890ff, #40a9ff);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.btn-select-all:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.4);
+}
+
+.selection-info {
+  font-weight: 600;
+  color: #666;
+}
+
+/* Fine Checkbox */
+.fine-checkbox {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: #1890ff;
+}
+
+/* Selected Row Highlight */
+.fines-table tbody tr.selected-row {
+  background: #e6f7ff !important;
+  border-left: 4px solid #1890ff;
 }
 
 /* Tab Navigation */

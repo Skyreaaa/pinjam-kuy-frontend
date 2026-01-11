@@ -32,8 +32,10 @@ const FinePaymentPage: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'pembayaran' | 'riwayat'>('pembayaran');
   const [fines, setFines] = useState<FineDetail[]>([]);
+  const [selectedFines, setSelectedFines] = useState<number[]>([]); // Selected loan IDs
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
   const [totalFine, setTotalFine] = useState(0);
+  const [selectedTotal, setSelectedTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showMethodModal, setShowMethodModal] = useState(false);
   const [showQrisModal, setShowQrisModal] = useState(false);
@@ -100,6 +102,9 @@ const FinePaymentPage: React.FC = () => {
       
       setFines(finesData);
       setTotalFine(finesData.reduce((sum, f) => sum + f.fineAmount, 0));
+      // Auto-select all fines by default
+      setSelectedFines(finesData.map(f => f.loanId));
+      setSelectedTotal(finesData.reduce((sum, f) => sum + f.fineAmount, 0));
     } catch (error) {
       console.error('Failed to fetch fines:', error);
     } finally {
@@ -123,6 +128,36 @@ const FinePaymentPage: React.FC = () => {
     }
   };
 
+  // Handle fine selection
+  const handleSelectFine = (loanId: number) => {
+    setSelectedFines(prev => {
+      const newSelected = prev.includes(loanId)
+        ? prev.filter(id => id !== loanId)
+        : [...prev, loanId];
+      
+      // Calculate new total
+      const newTotal = fines
+        .filter(f => newSelected.includes(f.loanId))
+        .reduce((sum, f) => sum + f.fineAmount, 0);
+      setSelectedTotal(newTotal);
+      
+      return newSelected;
+    });
+  };
+
+  // Select all fines
+  const handleSelectAll = () => {
+    if (selectedFines.length === fines.length) {
+      // Unselect all
+      setSelectedFines([]);
+      setSelectedTotal(0);
+    } else {
+      // Select all
+      setSelectedFines(fines.map(f => f.loanId));
+      setSelectedTotal(totalFine);
+    }
+  };
+
   const handlePaymentMethod = (method: 'qris' | 'bank' | 'cash') => {
     setShowMethodModal(false);
     if (method === 'qris') setShowQrisModal(true);
@@ -143,6 +178,11 @@ const FinePaymentPage: React.FC = () => {
       return;
     }
 
+    if (selectedFines.length === 0) {
+      alert('Pilih minimal 1 denda untuk dibayar!');
+      return;
+    }
+
     setUploading(true);
     try {
       const formData = new FormData();
@@ -150,8 +190,8 @@ const FinePaymentPage: React.FC = () => {
       formData.append('accountName', bankForm.accountName);
       formData.append('bankName', bankForm.bankName);
       formData.append('proof', bankForm.proofFile);
-      formData.append('loanIds', JSON.stringify(fines.map(f => f.loanId)));
-      formData.append('totalAmount', totalFine.toString());
+      formData.append('loanIds', JSON.stringify(selectedFines));
+      formData.append('totalAmount', selectedTotal.toString());
 
       const token = sessionStorage.getItem('token');
       await userApi.post('/loans/submit-fine-payment', formData, {
@@ -178,13 +218,18 @@ const FinePaymentPage: React.FC = () => {
   };
 
   const submitQrisPayment = async () => {
+    if (selectedFines.length === 0) {
+      alert('Pilih minimal 1 denda untuk dibayar!');
+      return;
+    }
+
     setUploading(true);
     try {
       const token = sessionStorage.getItem('token');
       await userApi.post('/loans/submit-fine-payment', {
         method: 'qris',
-        loanIds: fines.map(f => f.loanId),
-        totalAmount: totalFine
+        loanIds: selectedFines,
+        totalAmount: selectedTotal
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -206,13 +251,18 @@ const FinePaymentPage: React.FC = () => {
   };
 
   const submitCashPayment = async () => {
+    if (selectedFines.length === 0) {
+      alert('Pilih minimal 1 denda untuk dibayar!');
+      return;
+    }
+
     setUploading(true);
     try {
       const token = sessionStorage.getItem('token');
       await userApi.post('/loans/submit-fine-payment', {
         method: 'cash',
-        loanIds: fines.map(f => f.loanId),
-        totalAmount: totalFine
+        loanIds: selectedFines,
+        totalAmount: selectedTotal
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -273,9 +323,16 @@ const FinePaymentPage: React.FC = () => {
 
       <div className="page-header">
         <h1><FaMoneyBillWave /> Pembayaran Denda</h1>
-        {totalFine > 0 && (
-          <div className="total-fine-badge">
-            Total Denda: <strong>Rp {totalFine.toLocaleString('id-ID')}</strong>
+        {fines.length > 0 && (
+          <div className="total-fine-info">
+            <div className="total-fine-badge all">
+              Total Semua Denda: <strong>Rp {totalFine.toLocaleString('id-ID')}</strong>
+            </div>
+            {selectedTotal > 0 && selectedTotal !== totalFine && (
+              <div className="total-fine-badge selected">
+                Denda Terpilih: <strong>Rp {selectedTotal.toLocaleString('id-ID')}</strong>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -307,10 +364,23 @@ const FinePaymentPage: React.FC = () => {
             </div>
           ) : (
             <>
-              <div className="fines-table-container">;
+              <div className="fines-table-container">
+                <div className="selection-controls">
+                  <button 
+                    className="btn-select-all"
+                    onClick={handleSelectAll}
+                  >
+                    {selectedFines.length === fines.length ? '❌ Batal Pilih Semua' : '✅ Pilih Semua'}
+                  </button>
+                  <span className="selection-info">
+                    {selectedFines.length} dari {fines.length} denda terpilih
+                  </span>
+                </div>
+
                 <table className="fines-table">
                   <thead>
                     <tr>
+                      <th width="50">Pilih</th>
                       <th>Kode Peminjaman</th>
                       <th>Judul Buku</th>
                       <th>Tanggal Pinjam</th>
@@ -322,7 +392,15 @@ const FinePaymentPage: React.FC = () => {
                   </thead>
                   <tbody>
                     {fines.map((fine) => (
-                      <tr key={fine.loanId}>
+                      <tr key={fine.loanId} className={selectedFines.includes(fine.loanId) ? 'selected-row' : ''}>
+                        <td>
+                          <input 
+                            type="checkbox"
+                            checked={selectedFines.includes(fine.loanId)}
+                            onChange={() => handleSelectFine(fine.loanId)}
+                            className="fine-checkbox"
+                          />
+                        </td>
                         <td><strong>{fine.kodePinjam}</strong></td>
                         <td>{fine.bookTitle}</td>
                         <td>{new Date(fine.loanDate).toLocaleDateString('id-ID')}</td>
@@ -344,9 +422,11 @@ const FinePaymentPage: React.FC = () => {
                   </tbody>
                   <tfoot>
                     <tr>
-                      <td colSpan={5} style={{textAlign: 'right', fontWeight: 700}}>Total:</td>
+                      <td colSpan={6} style={{textAlign: 'right', fontWeight: 700}}>
+                        Total Terpilih:
+                      </td>
                       <td className="fine-amount" style={{fontWeight: 700, fontSize: 18}}>
-                        Rp {totalFine.toLocaleString('id-ID')}
+                        Rp {selectedTotal.toLocaleString('id-ID')}
                       </td>
                       <td></td>
                     </tr>
@@ -364,9 +444,15 @@ const FinePaymentPage: React.FC = () => {
                 <button 
                   className="btn-pay-now"
                   onClick={() => setShowMethodModal(true)}
-                  disabled={hasPendingPayment}
+                  disabled={hasPendingPayment || selectedFines.length === 0}
                 >
-                  <FaMoneyBillWave /> {hasPendingPayment ? 'Menunggu Verifikasi...' : 'Bayar Sekarang'}
+                  <FaMoneyBillWave /> 
+                  {hasPendingPayment 
+                    ? 'Menunggu Verifikasi...' 
+                    : selectedFines.length === 0 
+                      ? 'Pilih Denda Terlebih Dahulu'
+                      : `Bayar ${selectedFines.length} Denda (Rp ${selectedTotal.toLocaleString('id-ID')})`
+                  }
                 </button>
               </div>
             </>
