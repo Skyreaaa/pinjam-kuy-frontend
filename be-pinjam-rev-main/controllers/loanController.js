@@ -1568,37 +1568,41 @@ exports.getUserActivityHistory = async (req, res) => {
         const twoMonthsAgo = new Date();
         twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
         
-        console.log('[ACTIVITY_HISTORY] Fetching activities since:', twoMonthsAgo);
+        // Convert to PostgreSQL timestamp format
+        const twoMonthsAgoStr = twoMonthsAgo.toISOString();
         
-        // Get all loans from last 2 months with book info and admin rejection proof
+        console.log('[ACTIVITY_HISTORY] Fetching activities since:', twoMonthsAgoStr);
+        
+
+        // Get all loans from last 2 months with book info and admin rejection proof (PostgreSQL)
         let loansResult;
         try {
             loansResult = await pool.query(
                 `SELECT 
-                    l.id_pinjam AS "id",
+                    l.id AS "id",
                     l.kodepinjam AS "kodePinjam",
-                    l.tanggal_pinjam AS "loanDate",
-                    l.tanggal_kembali AS "expectedReturnDate",
-                    l.returnproofuploadedAt AS "actualReturnDate",
+                    l.loandate AS "loanDate",
+                    l.expectedreturndate AS "expectedReturnDate",
+                    l.actualreturndate AS "actualReturnDate",
                     l.status,
-                    COALESCE(l.totalfine, 0) AS "fineAmount",
-                    CASE WHEN l.finepaymentstatus = 'paid' THEN true ELSE false END AS "finePaid",
-                    COALESCE(l.fineforcostbook::text, '') AS "fineReason",
+                    COALESCE(l.fineamount, 0) AS "fineAmount",
+                    l.finepaid AS "finePaid",
+                    COALESCE(l.finereason, '') AS "fineReason",
                     COALESCE(l.rejectionreason, '') AS "rejectionReason",
                     l.rejectedat AS "rejectionDate",
-                    '' AS "adminRejectionProof",
-                    l.returnproofphoto AS "returnProofUrl",
-                    '{}' AS "returnProofMetadata",
-                    l.created_at AS "createdAt",
-                    b.judul AS "bookTitle",
-                    b.pengarang AS "author",
-                    b.isbn AS "kodeBuku"
-                 FROM loan l
-                 JOIN books b ON l.id_buku = b.id_buku
-                 WHERE l.id_user = $1 
-                    AND l.created_at >= $2
-                 ORDER BY l.created_at DESC`,
-                [userId, twoMonthsAgo]
+                    l.adminrejectionproof AS "adminRejectionProof",
+                    l.returnproofurl AS "returnProofUrl",
+                    l.returnproofmetadata AS "returnProofMetadata",
+                    l.createdat AS "createdAt",
+                    b.title AS "bookTitle",
+                    b.author AS "author",
+                    b.kodebuku AS "kodeBuku"
+                 FROM loans l
+                 JOIN books b ON l.book_id = b.id
+                 WHERE l.user_id = $1 
+                    AND l.createdat >= $2
+                 ORDER BY l.createdat DESC`,
+                [userId, twoMonthsAgoStr]
             );
         } catch (loansError) {
             console.error('[ACTIVITY_HISTORY] Error fetching loans:', loansError);
@@ -1608,33 +1612,34 @@ exports.getUserActivityHistory = async (req, res) => {
                 error: loansError.message 
             });
         }
-        
+
         console.log('[ACTIVITY_HISTORY] Found loans:', loansResult.rows.length);
-        
-        // Get fine payments from last 2 months
+
+        // Get fine payments from last 2 months (PostgreSQL)
         let paymentsResult;
         try {
             paymentsResult = await pool.query(
                 `SELECT 
                     id,
                     'fine_payment' AS "method",
-                    amount_paid AS "amountTotal",
-                    CASE WHEN approved_at IS NOT NULL THEN 'verified' ELSE 'pending' END AS "status",
-                    submitted_at AS "createdAt",
-                    approved_at AS "verifiedAt",
-                    '' AS "adminNotes"
-                 FROM loan_fine_payments
-                 WHERE id_pinjam IN (SELECT id_pinjam FROM loan WHERE id_user = $1)
-                    AND submitted_at >= $2
-                 ORDER BY submitted_at DESC`,
-                [userId, twoMonthsAgo]
+                    amount_total AS "amountTotal",
+                    method,
+                    status,
+                    created_at AS "createdAt",
+                    verified_at AS "verifiedAt",
+                    admin_notes AS "adminNotes"
+                 FROM fine_payments
+                 WHERE user_id = $1
+                    AND created_at >= $2
+                 ORDER BY created_at DESC`,
+                [userId, twoMonthsAgoStr]
             );
         } catch (paymentsError) {
             console.error('[ACTIVITY_HISTORY] Error fetching payments:', paymentsError);
             // Continue without payments if table doesn't exist
             paymentsResult = { rows: [] };
         }
-        
+
         console.log('[ACTIVITY_HISTORY] Found payments:', paymentsResult.rows.length);
         
         // Combine and format activity data
@@ -1643,62 +1648,69 @@ exports.getUserActivityHistory = async (req, res) => {
         // Add loan activities with error handling
         try {
             loansResult.rows.forEach(loan => {
-                // Loan request activity
-                activities.push({
-                    type: 'loan_request',
-                    date: loan.createdAt,
-                    loanId: loan.id,
-                    kodePinjam: loan.kodePinjam || '',
-                    bookTitle: loan.bookTitle || 'Judul tidak tersedia',
-                    author: loan.author || 'Penulis tidak tersedia',
-                    status: loan.status || 'Unknown',
-                    description: `Meminjam buku "${loan.bookTitle || 'Judul tidak tersedia'}"`
-                });
-                
-                // Return activity if returned (status 'dikembalikan')
-                if (loan.actualReturnDate || loan.status === 'dikembalikan') {
-                    activities.push({
-                        type: 'return',
-                        date: loan.actualReturnDate || loan.createdAt,
-                        loanId: loan.id,
-                        kodePinjam: loan.kodePinjam || '',
-                        bookTitle: loan.bookTitle || 'Judul tidak tersedia',
-                        author: loan.author || 'Penulis tidak tersedia',
-                        status: loan.status || 'Unknown',
-                        fineAmount: loan.fineAmount || 0,
-                        finePaid: loan.finePaid || false,
-                        fineReason: loan.fineReason || '',
-                        returnProofUrl: loan.returnProofUrl || '',
-                        returnProofMetadata: loan.returnProofMetadata || null,
-                        description: `Mengembalikan buku "${loan.bookTitle || 'Judul tidak tersedia'}"${loan.fineAmount && loan.fineAmount > 0 ? ` (Denda: Rp ${loan.fineAmount.toLocaleString('id-ID')})` : ''}`
+                // Combine and format activity data
+                console.log('[ACTIVITY_HISTORY] RAW loansResult:', JSON.stringify(loansResult.rows, null, 2));
+                console.log('[ACTIVITY_HISTORY] RAW paymentsResult:', JSON.stringify(paymentsResult.rows, null, 2));
+                const activities = [];
+                // Add loan activities with error handling
+                try {
+                    loansResult.rows.forEach(loan => {
+                        // Fallback: parse returnProofMetadata if string, else set {}
+                        let proofMeta = {};
+                        if (typeof loan.returnProofMetadata === 'string') {
+                          try { proofMeta = JSON.parse(loan.returnProofMetadata || '{}'); } catch (e) { proofMeta = {}; }
+                        } else if (typeof loan.returnProofMetadata === 'object' && loan.returnProofMetadata !== null) {
+                          proofMeta = loan.returnProofMetadata;
+                        }
+                        // Loan request activity
+                        activities.push({
+                            type: 'loan_request',
+                            date: loan.createdAt,
+                            loanId: loan.id,
+                            kodePinjam: loan.kodePinjam || '',
+                            bookTitle: loan.bookTitle || 'Judul tidak tersedia',
+                            author: loan.author || 'Penulis tidak tersedia',
+                            status: loan.status || 'Unknown',
+                            description: `Meminjam buku "${loan.bookTitle || 'Judul tidak tersedia'}"`
+                        });
+                        // Return activity if returned (status 'dikembalikan')
+                        if (loan.actualReturnDate || loan.status === 'dikembalikan') {
+                            activities.push({
+                                type: 'return',
+                                date: loan.actualReturnDate || loan.createdAt,
+                                loanId: loan.id,
+                                kodePinjam: loan.kodePinjam || '',
+                                bookTitle: loan.bookTitle || 'Judul tidak tersedia',
+                                author: loan.author || 'Penulis tidak tersedia',
+                                status: loan.status || 'Unknown',
+                                fineAmount: loan.fineAmount || 0,
+                                finePaid: loan.finePaid || false,
+                                fineReason: loan.fineReason || '',
+                                returnProofUrl: loan.returnProofUrl || '',
+                                returnProofMetadata: proofMeta,
+                                description: `Mengembalikan buku "${loan.bookTitle || 'Judul tidak tersedia'}"${loan.fineAmount && loan.fineAmount > 0 ? ` (Denda: Rp ${loan.fineAmount.toLocaleString('id-ID')})` : ''}`
+                            });
+                        }
+                        // Return rejection activity if rejected by admin (status 'ditolak')
+                        if (loan.rejectionDate && loan.rejectionReason && loan.status === 'ditolak') {
+                            activities.push({
+                                type: 'return_rejected',
+                                date: loan.rejectionDate,
+                                loanId: loan.id,
+                                kodePinjam: loan.kodePinjam || '',
+                                bookTitle: loan.bookTitle || 'Judul tidak tersedia',
+                                author: loan.author || 'Penulis tidak tersedia',
+                                status: 'Pengembalian Ditolak',
+                                rejectionReason: loan.rejectionReason || '',
+                                adminRejectionProof: loan.adminRejectionProof || '',
+                                description: `Pengembalian buku "${loan.bookTitle || 'Judul tidak tersedia'}" ditolak admin${loan.rejectionReason ? `: ${loan.rejectionReason}` : ''}`
+                            });
+                        }
                     });
+                } catch (loanProcessError) {
+                    console.error('[ACTIVITY_HISTORY] Error processing loans:', loanProcessError);
+                    // Continue processing even if some loans fail
                 }
-                
-                // Return rejection activity if rejected by admin (status 'ditolak')
-                if (loan.rejectionDate && loan.rejectionReason && loan.status === 'ditolak') {
-                    activities.push({
-                        type: 'return_rejected',
-                        date: loan.rejectionDate,
-                        loanId: loan.id,
-                        kodePinjam: loan.kodePinjam || '',
-                        bookTitle: loan.bookTitle || 'Judul tidak tersedia',
-                        author: loan.author || 'Penulis tidak tersedia',
-                        status: 'Pengembalian Ditolak',
-                        rejectionReason: loan.rejectionReason || '',
-                        adminRejectionProof: loan.adminRejectionProof || '',
-                        description: `Pengembalian buku "${loan.bookTitle || 'Judul tidak tersedia'}" ditolak admin${loan.rejectionReason ? `: ${loan.rejectionReason}` : ''}`
-                    });
-                }
-            });
-        } catch (loanProcessError) {
-            console.error('[ACTIVITY_HISTORY] Error processing loans:', loanProcessError);
-            // Continue processing even if some loans fail
-        }
-        
-        // Add fine payment activities with error handling
-        try {
-            paymentsResult.rows.forEach(payment => {
-                const amount = payment.amountTotal || 0;
                 const method = payment.method || 'unknown';
                 
                 activities.push({

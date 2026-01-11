@@ -68,6 +68,8 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({ onBack }) => 
   const [customEndDate, setCustomEndDate] = useState('');
   const [showFilterMenu, setShowFilterMenu] = useState(false);
   const [selectedProof, setSelectedProof] = useState<NotificationItem | null>(null);
+  // Filter kategori (buku, denda, broadcast, dll)
+  const [categoryFilter, setCategoryFilter] = useState<'all'|'buku'|'denda'|'broadcast'>('all');
 
   // Update URL untuk notification history page
   useEffect(() => {
@@ -125,12 +127,11 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({ onBack }) => 
           } as NotificationItem;
         });
 
-        // --- Fine-related notifications (FILTERED - only show system imposed fines, not payment status) ---
+        // --- Notifikasi denda: tampilkan denda ditetapkan, dibayar, dan ditolak (hanya notif, tanpa detail) ---
         const fineItems: NotificationItem[] = (loans || []).flatMap((l: any) => {
           const arr: NotificationItem[] = [];
           const amount = (l.penaltyAmount ?? l.fineAmount ?? 0) as number;
-          
-          // Only show when fine is first imposed by system, not payment status changes
+          // Denda baru
           if (l.finePaymentStatus === 'awaiting_proof' && amount > 0) {
             arr.push({ 
               id: l.id, 
@@ -141,11 +142,30 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({ onBack }) => 
               timestamp: l.actualReturnDate ? new Date(l.actualReturnDate) : new Date()
             });
           }
-          
-          // Remove fine payment status notifications - those belong in activity history
-          // if (l.finePaymentStatus === 'paid') { ... } - REMOVED
-          // if (l.finePaymentStatus === 'awaiting_proof' && l.returnProofRejected) { ... } - REMOVED
-          
+          // Denda dibayar/disetujui
+          if (l.finePaymentStatus === 'paid' && amount > 0) {
+            arr.push({
+              id: l.id,
+              bookTitle: l.bookTitle,
+              status: l.status,
+              kind: 'fine_paid',
+              amount,
+              timestamp: l.finePaidAt ? new Date(l.finePaidAt) : new Date(),
+              message: 'Pembayaran denda telah diverifikasi dan disetujui.'
+            });
+          }
+          // Denda ditolak
+          if ((l.finePaymentStatus === 'awaiting_proof' && l.returnProofRejected) && amount > 0) {
+            arr.push({
+              id: l.id,
+              bookTitle: l.bookTitle,
+              status: l.status,
+              kind: 'fine_rejected',
+              amount,
+              timestamp: l.fineRejectedAt ? new Date(l.fineRejectedAt) : new Date(),
+              message: 'Pembayaran denda ditolak, silakan upload ulang bukti pembayaran.'
+            });
+          }
           return arr;
         });
 
@@ -209,12 +229,13 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({ onBack }) => 
   // Apply filter whenever filterType or dates change
   useEffect(() => {
     applyFilter();
-  }, [filterType, customStartDate, customEndDate, allItems]);
+  }, [filterType, customStartDate, customEndDate, allItems, categoryFilter]);
 
   const applyFilter = () => {
     let filtered = [...allItems];
     const now = new Date();
 
+    // Filter tanggal
     switch (filterType) {
       case 'today':
         filtered = filtered.filter(item => {
@@ -225,7 +246,6 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({ onBack }) => 
           });
         });
         break;
-      
       case 'thisMonth':
         filtered = filtered.filter(item => {
           if (!item.timestamp) return false;
@@ -235,7 +255,6 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({ onBack }) => 
           });
         });
         break;
-      
       case 'lastMonth':
         const lastMonth = subMonths(now, 1);
         filtered = filtered.filter(item => {
@@ -246,7 +265,6 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({ onBack }) => 
           });
         });
         break;
-      
       case 'custom':
         if (customStartDate && customEndDate) {
           const start = startOfDay(new Date(customStartDate));
@@ -257,11 +275,19 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({ onBack }) => 
           });
         }
         break;
-      
       case 'all':
       default:
         // No filter
         break;
+    }
+
+    // Filter kategori
+    if (categoryFilter === 'buku') {
+      filtered = filtered.filter(item => item.kind === 'loan_approved' || item.kind === 'loan_rejected' || item.kind === 'return_approved' || item.kind === 'return_rejected');
+    } else if (categoryFilter === 'denda') {
+      filtered = filtered.filter(item => item.kind === 'fine_imposed' || item.kind === 'fine_paid' || item.kind === 'fine_rejected');
+    } else if (categoryFilter === 'broadcast') {
+      filtered = filtered.filter(item => item.kind === 'broadcast');
     }
 
     setFilteredItems(filtered);
@@ -315,6 +341,8 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({ onBack }) => 
       case 'return_rejected': return 'Bukti Pengembalian Ditolak';
       case 'loan_rejected': return 'Pinjaman Ditolak';
       case 'fine_imposed': return 'Denda Ditetapkan';
+      case 'fine_paid': return 'Pembayaran Denda Disetujui';
+      case 'fine_rejected': return 'Pembayaran Denda Ditolak';
       case 'loan_approved':
       default:
         return 'Pinjaman Disetujui';
@@ -346,6 +374,13 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({ onBack }) => 
         >
           <FaFilter /> {getFilterLabel()} <span className="filter-count">({filteredItems.length})</span>
         </button>
+        {/* Filter kategori */}
+        <div className="notif-category-filter">
+          <button className={`filter-option ${categoryFilter === 'all' ? 'active' : ''}`} onClick={() => setCategoryFilter('all')}>Semua</button>
+          <button className={`filter-option ${categoryFilter === 'buku' ? 'active' : ''}`} onClick={() => setCategoryFilter('buku')}>Buku</button>
+          <button className={`filter-option ${categoryFilter === 'denda' ? 'active' : ''}`} onClick={() => setCategoryFilter('denda')}>Denda</button>
+          <button className={`filter-option ${categoryFilter === 'broadcast' ? 'active' : ''}`} onClick={() => setCategoryFilter('broadcast')}>Broadcast</button>
+        </div>
 
         {showFilterMenu && (
           <div className="notif-filter-menu">

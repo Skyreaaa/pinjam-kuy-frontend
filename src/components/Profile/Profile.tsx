@@ -409,14 +409,7 @@ const Profile: React.FC<ProfileProps> = ({
                 <button className="icon-btn" onClick={handleEditProfile} title="Edit Biodata">
                   <FaEdit />
                 </button>
-                <button 
-                  className="icon-btn" 
-                  onClick={() => window.location.href = '/activity-history'} 
-                  title="Riwayat Aktivitas"
-                  style={{ marginLeft: '8px' }}
-                >
-                  <FaHistory />
-                </button>
+                {/* Tombol histori aktivitas dihapus */}
               </>
             )}
           </h3>
