@@ -240,7 +240,7 @@ body {
 /* Warna spesifik breakdown */
 .fine-breakdown .bd-running, .fine-breakdown .bd-running-val { color:#FF0000;; }
 .fine-breakdown .bd-unpaid, .fine-breakdown .bd-unpaid-val { color:#FF0000; }
-.fine-breakdown .bd-historical, .fine-breakdown .bd-historical-val { color:#4caf50; }
+.fine-breakdown .bd-historical, .fine-breakdown .bd-historical-val { color:#007bff; }
 .fine-breakdown .bd-total-hist { margin-top:2px; border-top:1px dashed rgba(255,255,255,0.25); padding-top:2px; }
 .fine-breakdown .bd-note { color:#888; font-size:0.6rem; margin-top:2px; font-weight:500; }
 .hidden { display: none !important; }
