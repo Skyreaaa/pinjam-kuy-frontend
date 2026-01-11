@@ -14,11 +14,16 @@ const getDBPool = (req) => req.app.get('dbPool');
 
 // GET /api/user/notifications - Get user notifications
 router.get('/notifications', async (req, res) => {
+    const pool = getDBPool(req);
     const { id } = req.userData || {};
     if (!id) return res.status(401).json({ success: false, message: 'Token tidak valid.' });
     
     try {
-        const notifications = await UserNotification.getForUser(id, 50);
+        const result = await pool.query(
+            'SELECT * FROM user_notifications WHERE user_id IS NULL OR user_id = $1 ORDER BY createdAt DESC LIMIT 30',
+            [id]
+        );
+        const notifications = result.rows;
         res.json({ success: true, data: notifications });
     } catch (error) {
         console.error('Error fetching user notifications:', error);
@@ -32,15 +37,16 @@ router.get('/me', async (req, res) => {
     const { id } = req.userData || {}; // dari token
     if (!id) return res.status(401).json({ success: false, message: 'Token tidak valid.' });
     try {
-        const [rows] = await pool.query(`
+        const result = await pool.query(`
             SELECT 
                 u.id, u.npm, u.username, u.role, u.fakultas, u.prodi, u.angkatan, u.profile_photo_url, u.denda, u.denda_unpaid,
                                 (SELECT COUNT(*) FROM loans l 
                                      WHERE l.user_id = u.id 
                                          AND l.status IN ('Disetujui','Diambil','Sedang Dipinjam','Terlambat','Siap Dikembalikan')
                                 ) AS active_loans_count
-            FROM users u WHERE u.id = ? LIMIT 1
+            FROM users u WHERE u.id = $1 LIMIT 1
         `, [id]);
+        const rows = result.rows;
         if (!rows.length) return res.status(404).json({ success: false, message: 'Pengguna tidak ditemukan.' });
         return res.json({ success: true, user: rows[0] });
     } catch (e) {
@@ -55,15 +61,17 @@ router.get('/active-fine', async (req, res) => {
     const { id } = req.userData || {};
     if (!id) return res.status(401).json({ success:false, message:'Token tidak valid.' });
     try {
-        const [userRows] = await pool.query('SELECT denda_unpaid, denda FROM users WHERE id = ? LIMIT 1',[id]);
+        const userResult = await pool.query('SELECT denda_unpaid, denda FROM users WHERE id = $1 LIMIT 1',[id]);
+        const userRows = userResult.rows;
         if (!userRows.length) return res.status(404).json({ success:false, message:'User tidak ditemukan.' });
         const denda_unpaid = Number(userRows[0].denda_unpaid) || 0;
         const historicalTotal = Number(userRows[0].denda) || 0; // total akumulasi
         // Tambahkan status 'Siap Dikembalikan' karena masih berjalan dan bisa menumpuk denda sampai diverifikasi admin
-        const [runningLoans] = await pool.query(
-            `SELECT expectedReturnDate FROM loans WHERE user_id = ? AND status IN ('Sedang Dipinjam','Terlambat','Siap Dikembalikan')`,
+        const runningLoansResult = await pool.query(
+            `SELECT expectedReturnDate FROM loans WHERE user_id = $1 AND status IN ('Sedang Dipinjam','Terlambat','Siap Dikembalikan')`,
             [id]
         );
+        const runningLoans = runningLoansResult.rows;
         const now = new Date();
         const PENALTY_PER_DAY = 2000;
         let runningFine = 0;
@@ -90,11 +98,12 @@ router.get('/active-loans-count', async (req,res)=>{
     const { id } = req.userData || {};
     if (!id) return res.status(401).json({ success:false, message:'Token tidak valid.' });
     try {
-        const [rows] = await pool.query(
+        const result = await pool.query(
             `SELECT COUNT(*) AS cnt FROM loans 
-              WHERE user_id=? AND status IN ('Disetujui','Diambil','Sedang Dipinjam','Terlambat','Siap Dikembalikan')`,
+              WHERE user_id=$1 AND status IN ('Disetujui','Diambil','Sedang Dipinjam','Terlambat','Siap Dikembalikan')`,
             [id]
         );
+        const rows = result.rows;
         return res.json({ success:true, activeLoans: rows[0].cnt || 0 });
     } catch(e){
         console.error('Error get /active-loans-count:', e);
@@ -120,15 +129,18 @@ router.get('/summary/:userId', async (req, res) => {
         return res.status(403).json({ message: 'Akses Ditolak. Anda hanya dapat melihat data Anda sendiri.' });
     }
     try {
-        const [borrowed] = await pool.query(
-            "SELECT COUNT(*) as count FROM loans WHERE user_id = ? AND status IN ('Sedang Dipinjam', 'Disetujui', 'Menunggu Persetujuan')",
+        const borrowedResult = await pool.query(
+            "SELECT COUNT(*) as count FROM loans WHERE user_id = $1 AND status IN ('Sedang Dipinjam', 'Disetujui', 'Menunggu Persetujuan')",
             [userId]
         );
-        const [penalty] = await pool.query(
-            "SELECT SUM(fineAmount) as total FROM loans WHERE user_id = ? AND status IN ('Terlambat','Dikembalikan')",
+        const borrowed = borrowedResult.rows;
+        const penaltyResult = await pool.query(
+            "SELECT SUM(fineAmount) as total FROM loans WHERE user_id = $1 AND status IN ('Terlambat','Dikembalikan')",
             [userId]
         );
-        const [userRows] = await pool.query('SELECT denda_unpaid FROM users WHERE id = ? LIMIT 1',[userId]);
+        const penalty = penaltyResult.rows;
+        const userRowsResult = await pool.query('SELECT denda_unpaid FROM users WHERE id = $1 LIMIT 1',[userId]);
+        const userRows = userRowsResult.rows;
         const denda_unpaid = userRows.length ? Number(userRows[0].denda_unpaid) : 0;
         res.json({
             booksBorrowed: borrowed[0].count || 0,
@@ -149,14 +161,16 @@ router.post('/initiate-fines', async (req, res) => {
     if (!Array.isArray(loanIds) || !loanIds.length) return res.status(400).json({ success:false, message:'loanIds diperlukan.' });
     if (!['bank','qris','cash'].includes(method)) return res.status(400).json({ success:false, message:'Metode tidak valid.' });
     try {
-        const placeholders = loanIds.map(()=>'?').join(',');
-        const [rows] = await pool.query(`SELECT id,fineAmount,finePaymentStatus,finePaid FROM loans WHERE user_id=? AND id IN (${placeholders}) AND status='Dikembalikan' AND fineAmount>0`, [userId, ...loanIds]);
+        const placeholders = loanIds.map((_,i)=>`$${i+2}`).join(',');
+        const result = await pool.query(`SELECT id,fineAmount,finePaymentStatus,finePaid FROM loans WHERE user_id=$1 AND id IN (${placeholders}) AND status='Dikembalikan' AND fineAmount>0`, [userId, ...loanIds]);
+        const rows = result.rows;
         if (!rows.length) return res.status(404).json({ success:false, message:'Denda tidak ditemukan / status belum Dikembalikan.' });
         const blocking = rows.filter(r=> r.finePaymentStatus==='paid' || r.finePaid===1);
         if (blocking.length) return res.status(400).json({ success:false, message:'Ada denda yang sudah lunas.' });
         // Determine next status
         const nextStatus = method === 'cash' ? 'pending_verification' : 'awaiting_proof';
-        await pool.query(`UPDATE loans SET finePaymentStatus=?, finePaymentMethod=? WHERE user_id=? AND id IN (${placeholders})`, [nextStatus, method, userId, ...loanIds]);
+        const updatePlaceholders = loanIds.map((_,i)=>`$${i+4}`).join(',');
+        await pool.query(`UPDATE loans SET finePaymentStatus=$1, finePaymentMethod=$2 WHERE user_id=$3 AND id IN (${updatePlaceholders})`, [nextStatus, method, userId, ...loanIds]);
         return res.json({ success:true, updatedIds: loanIds, status: nextStatus, method });
     } catch (e){
         console.error('Error initiate-fines:', e);
@@ -178,13 +192,15 @@ router.post('/upload-fine-proof', uploadFineProof.single('proof'), async (req,re
     try { ids = JSON.parse(loanIds); } catch { ids = Array.isArray(loanIds)? loanIds: []; }
     if (!Array.isArray(ids) || !ids.length) return res.status(400).json({ success:false, message:'loanIds tidak valid.' });
     try {
-        const placeholders = ids.map(()=>'?').join(',');
-        const [rows] = await pool.query(`SELECT id,finePaymentStatus,fineAmount,finePaymentMethod FROM loans WHERE user_id=? AND id IN (${placeholders})`, [userId, ...ids]);
+        const placeholders = ids.map((_,i)=>`$${i+2}`).join(',');
+        const result = await pool.query(`SELECT id,finePaymentStatus,fineAmount,finePaymentMethod FROM loans WHERE user_id=$1 AND id IN (${placeholders})`, [userId, ...ids]);
+        const rows = result.rows;
         if (!rows.length) return res.status(404).json({ success:false, message:'Data denda tidak ditemukan.' });
         const invalid = rows.filter(r=> r.finePaymentStatus !== 'awaiting_proof');
         if (invalid.length) return res.status(400).json({ success:false, message:'Ada denda bukan status awaiting_proof.' });
         const proofUrl = req.file.path; // URL Cloudinary
-        await pool.query(`UPDATE loans SET finePaymentStatus='pending_verification', finePaymentProof=? WHERE user_id=? AND id IN (${placeholders})`, [proofUrl, userId, ...ids]);
+        const updatePlaceholders = ids.map((_,i)=>`$${i+3}`).join(',');
+        await pool.query(`UPDATE loans SET finePaymentStatus='pending_verification', finePaymentProof=$1 WHERE user_id=$2 AND id IN (${updatePlaceholders})`, [proofUrl, userId, ...ids]);
 
         // --- NOTIFICATION INSERT (ADMIN AWARE) ---
         try {
@@ -225,20 +241,22 @@ router.post('/pay-fines', async (req, res) => {
         let targetLoansQuery = `SELECT id, fineAmount, finePaymentStatus FROM loans WHERE user_id = ? AND status = 'Dikembalikan' AND fineAmount > 0 AND finePaymentStatus IN ('pending_verification')`;
         const params = [userId];
         if (Array.isArray(loanIds) && loanIds.length) {
-            const placeholders = loanIds.map(()=>'?').join(',');
+            const placeholders = loanIds.map((_,i)=>`$${i+2}`).join(',');
             targetLoansQuery += ` AND id IN (${placeholders})`;
             params.push(...loanIds);
         }
-        const [loanRows] = await pool.query(targetLoansQuery, params);
+        const loanRowsResult = await pool.query(targetLoansQuery, params);
+        const loanRows = loanRowsResult.rows;
         if (!loanRows.length) {
             return res.json({ success:true, paidCount:0, paidTotal:0, remainingUnpaid:null, message:'Tidak ada denda yang siap diverifikasi/lunas.' });
         }
         const totalPay = loanRows.reduce((sum,r)=> sum + (Number(r.fineAmount)||0), 0);
         const loanIdsToUpdate = loanRows.map(r=>r.id);
-        const idPlaceholders = loanIdsToUpdate.map(()=>'?').join(',');
-        await pool.query(`UPDATE loans SET finePaid = 1, finePaymentStatus='paid', finePaymentAt=NOW() WHERE user_id = ? AND id IN (${idPlaceholders})`, [userId, ...loanIdsToUpdate]);
-        await pool.query(`UPDATE users SET denda_unpaid = GREATEST(denda_unpaid - ?, 0) WHERE id = ?`, [totalPay, userId]);
-        const [afterUser] = await pool.query('SELECT denda_unpaid FROM users WHERE id = ? LIMIT 1',[userId]);
+        const idPlaceholders = loanIdsToUpdate.map((_,i)=>`$${i+2}`).join(',');
+        await pool.query(`UPDATE loans SET finePaid = 1, finePaymentStatus='paid', finePaymentAt=CURRENT_TIMESTAMP WHERE user_id = $1 AND id IN (${idPlaceholders})`, [userId, ...loanIdsToUpdate]);
+        await pool.query(`UPDATE users SET denda_unpaid = GREATEST(denda_unpaid - $1, 0) WHERE id = $2`, [totalPay, userId]);
+        const afterUserResult = await pool.query('SELECT denda_unpaid FROM users WHERE id = $1 LIMIT 1',[userId]);
+        const afterUser = afterUserResult.rows;
         const remainingUnpaid = afterUser.length ? Number(afterUser[0].denda_unpaid) : 0;
         return res.json({ success:true, paidCount:loanRows.length, paidTotal:totalPay, remainingUnpaid });
     } catch (e){

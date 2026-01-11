@@ -4,7 +4,7 @@ console.log('[DEBUG] JWT_SECRET:', process.env.JWT_SECRET);
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const mysql = require('mysql2/promise');
+const { Pool } = require('pg'); // PostgreSQL instead of MySQL
 const dotenv = require('dotenv');
 const fs = require('fs');
 const cors = require('cors');
@@ -55,6 +55,11 @@ const corsOptions = {
             return callback(null, true);
         }
         
+        // Allow Vercel deployments
+        if (origin.includes('vercel.app')) {
+            return callback(null, true);
+        }
+        
         if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
             callback(null, true);
         } else {
@@ -62,7 +67,9 @@ const corsOptions = {
             callback(new Error('Not allowed by CORS'));
         }
     },
-    credentials: true
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS']
 };
 
 // --- Handler untuk semua preflight OPTIONS agar CORS preflight selalu direspon ---
@@ -168,32 +175,37 @@ if (!process.env.DB_HOST || !process.env.DB_USER || !process.env.DB_DATABASE) {
 }
 
 // --- Environment Diagnostics (untuk troubleshooting login) ---
-const requiredEnv = ['DB_HOST','DB_USER','DB_PASSWORD','DB_DATABASE','JWT_SECRET'];
-requiredEnv.forEach(key => {
-    if (!process.env[key] || process.env[key].length === 0) {
-        console.warn(`[ENV WARN] Variabel ${key} kosong atau tidak terdefinisi.`);
-    }
-});
-console.log('ENV SUMMARY:', {
-    DB_HOST: process.env.DB_HOST,
-    DB_USER: process.env.DB_USER,
-    DB_DATABASE: process.env.DB_DATABASE,
-    HAS_JWT_SECRET: !!process.env.JWT_SECRET,
-});
+// Skip validation untuk DATABASE_URL (PostgreSQL connection string)
+if (!process.env.DATABASE_URL) {
+    const requiredEnv = ['DB_HOST','DB_USER','DB_PASSWORD','DB_DATABASE','JWT_SECRET'];
+    requiredEnv.forEach(key => {
+        if (!process.env[key] || process.env[key].length === 0) {
+            console.warn(`[ENV WARN] Variabel ${key} kosong atau tidak terdefinisi.`);
+        }
+    });
+    console.log('ENV SUMMARY:', {
+        DB_HOST: process.env.DB_HOST,
+        DB_USER: process.env.DB_USER,
+        DB_DATABASE: process.env.DB_DATABASE,
+        HAS_JWT_SECRET: !!process.env.JWT_SECRET,
+    });
 
-// Hard fail early if critical env still missing (agar tidak bingung di tahap login)
-if (!process.env.DB_HOST || !process.env.DB_USER || !process.env.DB_DATABASE) {
-    console.error('\n[ENV FATAL] Variabel DB_HOST / DB_USER / DB_DATABASE masih kosong.');
-    console.error('> Pastikan file .env berada di folder be-pinjam-master dan berisi nilai seperti:');
-    console.error('  DB_HOST=localhost');
-    console.error('  DB_USER=root');
-    console.error('  DB_DATABASE=pinjam_kuy');
-    console.error('\n[DEBUG] Path file server.js :', __filename);
-    console.error('[DEBUG] Working directory    :', process.cwd());
-    console.error('[DEBUG] Kandidat .env dicek  :', envPathCandidates);
-    console.error('[DEBUG] Loaded from          :', loadedEnvPath || '(NOT LOADED)');
-    console.error('> Jika kamu baru saja membuat .env, SIMPAN file lalu restart: node server.js');
-    process.exit(1);
+    // Hard fail early if critical env still missing (agar tidak bingung di tahap login)
+    if (!process.env.DB_HOST || !process.env.DB_USER || !process.env.DB_DATABASE) {
+        console.error('\n[ENV FATAL] Variabel DB_HOST / DB_USER / DB_DATABASE masih kosong.');
+        console.error('> Pastikan file .env berada di folder be-pinjam-master dan berisi nilai seperti:');
+        console.error('  DB_HOST=localhost');
+        console.error('  DB_USER=root');
+        console.error('  DB_DATABASE=pinjam_kuy');
+        console.error('\n[DEBUG] Path file server.js :', __filename);
+        console.error('[DEBUG] Working directory    :', process.cwd());
+        console.error('[DEBUG] Kandidat .env dicek  :', envPathCandidates);
+        console.error('[DEBUG] Loaded from          :', loadedEnvPath || '(NOT LOADED)');
+        console.error('> Jika kamu baru saja membuat .env, SIMPAN file lalu restart: node server.js');
+        process.exit(1);
+    }
+} else {
+    console.log('ENV SUMMARY: Using DATABASE_URL for PostgreSQL connection');
 }
 
 const server = http.createServer(app);
@@ -242,67 +254,59 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(sessionMiddleware);
 
+// --- 3. Register Routes (BEFORE database connection) ---
+// Routes need to be registered before server starts listening
+app.use('/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/loans', loanRoutes);
+app.use('/api/books', bookRoutes);
+app.use('/api/profile', profileRoutes);
+app.use('/api/push', pushRoutes);
+
+// Alias routes without /api prefix for frontend compatibility
+app.use('/admin', adminRoutes); // Alias for admin routes
+app.use('/loans', loanRoutes);
+app.use('/books', bookRoutes);
+app.use('/profile', profileRoutes);
+app.use('/user', profileRoutes); // Alias for /user/notifications
+
+console.log('✅ Routes registered');
+
 let pool;
 
-// Fungsi Koneksi Database (Menggunakan mysql2/promise)
+// Fungsi Koneksi Database (PostgreSQL)
 async function connectDB() {
     try {
-        const baseConfig = {
+        // PostgreSQL connection using environment variables or connection string
+        const connectionString = process.env.DATABASE_URL || 
+            `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT || 5432}/${process.env.DB_DATABASE}`;
+        
+        pool = new Pool({
+            connectionString: connectionString,
+            ssl: {
+                rejectUnauthorized: false // Required for Supabase
+            },
+            // Force IPv4 to avoid IPv6 network issues
             host: process.env.DB_HOST,
+            port: process.env.DB_PORT || 5432,
             user: process.env.DB_USER,
             password: process.env.DB_PASSWORD,
-            waitForConnections: true,
-            connectionLimit: 10,
-            queueLimit: 0,
-            multipleStatements: true // untuk impor schema fallback gabungan
-        };
+            database: process.env.DB_DATABASE
+        });
 
-        const dbName = process.env.DB_DATABASE;
-        if (!dbName) throw new Error('DB_DATABASE env tidak di-set.');
-
-        try {
-            pool = mysql.createPool({ ...baseConfig, database: dbName });
-            await pool.query('SELECT 1');
-        } catch (err) {
-            if (err && err.code === 'ER_BAD_DB_ERROR') {
-                console.warn(`⚠️  Database '${dbName}' belum ada. Membuat dan mengimpor schema...`);
-                // Buat koneksi tanpa database untuk create DB
-                const tmp = await mysql.createConnection(baseConfig);
-                await tmp.query(`CREATE DATABASE \`${dbName}\``);
-                console.log(`✅ Database '${dbName}' dibuat.`);
-                await tmp.end();
-                // Re-init pool dengan database
-                pool = mysql.createPool({ ...baseConfig, database: dbName });
-                await importSchema(pool);
-            } else {
-                throw err;
-            }
-        }
-
-        // Setelah pool siap, cek apakah tabel inti ada. Jika tidak, impor schema.
-    await ensureCoreTables(pool);
-    // Diagnostik: tampilkan tabel yang ada setelah ensureCoreTables
-    try {
-      const [tblRows] = await pool.query('SHOW TABLES');
-      console.log('[DB] Daftar tabel setelah ensureCoreTables:', tblRows.map(r=>Object.values(r)[0]));
-    } catch(diagErr){
-      console.warn('[DB] Gagal SHOW TABLES untuk diagnosa:', diagErr.message);
-    }
-
-    // Jalankan migrasi tambahan setelah core tables dipastikan ada
-    await ensureLoanMigrations(pool);
-    await ensureBooksDescriptionColumn(pool);
-    await ensureLoanKodePinjam(pool);
-    await ensureLoanStatusEnum(pool);
-    await normalizeLoanStatuses(pool);
-    await ensureLoanReturnColumns(pool);
-    await ensureUserUnpaidFineColumn(pool); // NEW: pastikan kolom denda_unpaid ada
-    await ensureLoanFinePaymentColumns(pool); // NEW: kolom status pembayaran denda
-
+        // Test connection
+        const client = await pool.connect();
+        await client.query('SELECT 1');
+        client.release();
+        
+        console.log('✅ Database terhubung!');
+        
         // Simpan pool di app untuk diakses oleh routes (WAJIB)
         app.set('dbPool', pool);
+        
         console.log('✅ Database terhubung dengan sukses!');
-        console.log('[DEBUG] connectDB() selesai tanpa error. Menunggu seed data...');
+        console.log('[DEBUG] connectDB() selesai tanpa error.');
+        return pool;
     } catch (error) {
         console.error('❌ Gagal terhubung ke database:', error.message);
         console.error('[DEBUG] Full error:', error);

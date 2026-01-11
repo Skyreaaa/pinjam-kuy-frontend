@@ -30,19 +30,19 @@ exports.login = async (req, res) => {
 
     try {
         if (verbose) console.log('[LOGIN] Attempt npm=', npm);
-        let rows;
+        let result;
         try {
             if (verbose) console.log('[LOGIN] Primary query with extra columns');
-            [rows] = await pool.query(
-                `SELECT ${baseColumns}, ${extraColumns} FROM users WHERE npm = ? LIMIT 1`,
+            result = await pool.query(
+                `SELECT ${baseColumns}, ${extraColumns} FROM users WHERE npm = $1 LIMIT 1`,
                 [npm]
             );
         } catch (qErr) {
-            // Fallback if columns do not exist (ER_BAD_FIELD_ERROR = 1054)
-            if (qErr && qErr.code === 'ER_BAD_FIELD_ERROR') {
+            // Fallback if columns do not exist
+            if (qErr && (qErr.code === '42703' || qErr.code === 'ER_BAD_FIELD_ERROR')) {
                 if (verbose) console.warn('[LOGIN] Fallback query: columns missing (active_loans_count / denda). Error:', qErr.message);
-                [rows] = await pool.query(
-                    `SELECT ${baseColumns} FROM users WHERE npm = ? LIMIT 1`,
+                result = await pool.query(
+                    `SELECT ${baseColumns} FROM users WHERE npm = $1 LIMIT 1`,
                     [npm]
                 );
             } else {
@@ -50,12 +50,12 @@ exports.login = async (req, res) => {
             }
         }
 
-        if (!rows || rows.length === 0) {
+        if (!result || !result.rows || result.rows.length === 0) {
             if (verbose) console.log('[LOGIN] User not found for npm', npm);
             return res.status(401).json({ success: false, message: 'NPM atau Kata Sandi salah.' });
         }
 
-        user = rows[0];
+        user = result.rows[0];
         if (verbose) console.log('[LOGIN] User row retrieved (id=%s, hasPassword=%s)', user.id, !!user.password);
 
         // Password hash sanity check
@@ -111,14 +111,6 @@ exports.login = async (req, res) => {
             userData: normalizedUser
         });
     } catch (error) {
-        if (error && error.code === 'ER_BAD_DB_ERROR') {
-            console.error('❌ ERROR: Database tidak ditemukan saat login:', error.message);
-            return res.status(500).json({ success: false, message: 'Database belum diinisialisasi. Restart server untuk auto-create.' });
-        }
-        if (error && error.code === 'ER_NO_SUCH_TABLE') {
-            console.error('❌ ERROR: Tabel users belum ada:', error.message);
-            return res.status(500).json({ success: false, message: 'Tabel users belum ada. Restart server untuk impor schema.' });
-        }
         console.error('❌ ERROR: Gagal login (outer catch):', error);
         return res.status(500).json({ success: false, message: 'Terjadi kesalahan server saat login.' });
     }

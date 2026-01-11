@@ -1,3 +1,5 @@
+const getDBPool = (req) => req.app.get('dbPool');
+
 // File: controllers/profileController.js
 const fs = require('fs/promises');
 const path = require('path');
@@ -28,17 +30,17 @@ exports.updateBiodata = async (req, res) => {
 
     try {
         console.log('[PROFILE][updateBiodata] userId=%s npm=%s body=%o', id, npm, { username, fakultas, prodi, angkatan });
-        const [result] = await pool.query(
-            'UPDATE users SET username = ?, fakultas = ?, prodi = ?, angkatan = ? WHERE npm = ?',
+        const updateResult = await pool.query(
+            'UPDATE users SET username = $1, fakultas = $2, prodi = $3, angkatan = $4 WHERE npm = $5',
             [username, fakultas, prodi, angkatan, npm]
         );
 
-        if (result.affectedRows === 0) {
+        if (updateResult.rowCount === 0) {
             return res.status(404).json({ success: false, message: 'Pengguna tidak ditemukan.' });
         }
 
-        const [rows] = await pool.query('SELECT id, npm, username, role, fakultas, prodi, angkatan, profile_photo_url, denda, active_loans_count FROM users WHERE npm = ? LIMIT 1', [npm]);
-        const updatedUser = rows[0] || null;
+        const userResult = await pool.query('SELECT id, npm, username, role, fakultas, prodi, angkatan, profile_photo_url, denda, active_loans_count FROM users WHERE npm = $1 LIMIT 1', [npm]);
+        const updatedUser = userResult.rows[0] || null;
         res.status(200).json({
             success: true,
             message: 'Biodata berhasil diperbarui.',
@@ -66,7 +68,7 @@ exports.uploadPhoto = [
         const photoUrl = req.file.path;
         try {
             await pool.query(
-                'UPDATE users SET profile_photo_url = ? WHERE npm = ?',
+                'UPDATE users SET profile_photo_url = $1 WHERE npm = $2',
                 [photoUrl, npm]
             );
             res.status(200).json({
@@ -87,10 +89,12 @@ exports.deletePhoto = async (req, res) => {
     const { npm } = req.userData;
 
     try {
-        const [oldRows] = await pool.query('SELECT profile_photo_url FROM users WHERE npm = ?', [npm]);
+        const oldResult = await pool.query('SELECT profile_photo_url FROM users WHERE npm = $1', [npm]);
+        const oldRows = oldResult.rows;
         const oldPhotoUrl = oldRows[0]?.profile_photo_url;
-        
-        const [result] = await pool.query('UPDATE users SET profile_photo_url = NULL WHERE npm = ?', [npm]);
+
+        const _pgResult = await pool.query('UPDATE users SET profile_photo_url = NULL WHERE npm = $1', [npm]);
+        const result = _pgResult.rows;
 
         if (result.affectedRows > 0 && oldPhotoUrl) {
             const oldPhotoPath = path.join(__dirname, '..', oldPhotoUrl);

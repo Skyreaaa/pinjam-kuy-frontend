@@ -117,23 +117,26 @@ const AdminBroadcastPage: React.FC = () => {
     setSending(true);
     setResult(null);
     try {
-      const res = await fetch('/api/admin/broadcast', {
-        methdata = await adminApi.broadcast({
+      const data = await adminApi.broadcast({
         message,
         type,
-        userIds: selectedUserIds.length ? selectedUserIds : undefined
-      }
+        userIds: selectedUserIds.length ? selectedUserIds : undefined,
+      });
+
+      if (data && data.success) {
         setResult(selectedUserIds.length ? 'Broadcast berhasil dikirim ke user terpilih!' : 'Broadcast berhasil dikirim ke semua user!');
         setMessage('');
         setSelectedUserIds([]);
-        fetchHistory();
+        await fetchHistory();
       } else {
-        setResult(data.message || 'Gagal mengirim broadcast.');
+        setResult((data && (data.message || data.error)) || 'Gagal mengirim broadcast.');
       }
-    } catch (err) {
+    } catch (err: any) {
+      console.error('[BROADCAST] Error sending broadcast:', err);
       setResult('Gagal mengirim broadcast.');
+    } finally {
+      setSending(false);
     }
-    setSending(false);
   };
 
   return (

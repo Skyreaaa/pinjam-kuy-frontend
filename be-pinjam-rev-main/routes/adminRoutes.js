@@ -5,7 +5,6 @@ const router = express.Router();
 const adminController = require('../controllers/adminController'); 
 const loanController = require('../controllers/loanController'); 
 const jwt = require('jsonwebtoken'); 
-router.get('/stats', adminController.getStats);
 // Statistik/Laporan untuk dashboard admin
 router.get('/stats', adminController.getStats);
 router.get('/stats/top-books', adminController.getTopBooks);
@@ -13,6 +12,13 @@ router.get('/stats/monthly-activity', adminController.getMonthlyActivity);
 router.get('/stats/active-loans', adminController.getActiveLoans);
 router.get('/stats/outstanding-fines', adminController.getOutstandingFines);
 router.get('/stats/notification-stats', adminController.getNotificationStats);
+
+// Alias routes without /stats prefix for frontend compatibility
+router.get('/top-books', adminController.getTopBooks);
+router.get('/monthly-activity', adminController.getMonthlyActivity);
+router.get('/active-loans', adminController.getActiveLoans);
+router.get('/outstanding-fines', adminController.getOutstandingFines);
+router.get('/notification-stats', adminController.getNotificationStats);
 
 // === BROADCAST NOTIFIKASI KE SEMUA USER ===
 const UserNotification = require('../models/user_notifications');
@@ -51,6 +57,63 @@ const authenticateAdmin = (req, res, next) => {
 };
 
 router.use(authenticateAdmin);
+
+// === USER MANAGEMENT ===
+router.get('/users', async (req, res) => {
+    const pool = req.app.get('dbPool');
+    try {
+        const result = await pool.query('SELECT id, npm, username, role, fakultas, prodi, angkatan, denda, denda_unpaid, active_loans_count, createdAt FROM users ORDER BY createdAt DESC');
+        res.json(result.rows || []);
+    } catch (error) {
+        console.error('[ADMIN] Error getting users:', error);
+        res.status(500).json({ message: 'Gagal mengambil daftar users' });
+    }
+});
+
+router.post('/users', async (req, res) => {
+    const pool = req.app.get('dbPool');
+    const { npm, username, password, role = 'user' } = req.body;
+    try {
+        const bcrypt = require('bcrypt');
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const result = await pool.query(
+            'INSERT INTO users (npm, username, password, role) VALUES ($1, $2, $3, $4) RETURNING *',
+            [npm, username, hashedPassword, role]
+        );
+        res.json({ success: true, user: result.rows[0] });
+    } catch (error) {
+        console.error('[ADMIN] Error creating user:', error);
+        res.status(500).json({ message: 'Gagal membuat user' });
+    }
+});
+
+router.put('/users/:id', async (req, res) => {
+    const pool = req.app.get('dbPool');
+    const { id } = req.params;
+    const { npm, username, role, fakultas, prodi, angkatan } = req.body;
+    try {
+        const result = await pool.query(
+            'UPDATE users SET npm = $1, username = $2, role = $3, fakultas = $4, prodi = $5, angkatan = $6 WHERE id = $7 RETURNING *',
+            [npm, username, role, fakultas || null, prodi || null, angkatan || null, id]
+        );
+        res.json({ success: true, user: result.rows[0] });
+    } catch (error) {
+        console.error('[ADMIN] Error updating user:', error);
+        res.status(500).json({ message: 'Gagal update user' });
+    }
+});
+
+router.delete('/users/:id', async (req, res) => {
+    const pool = req.app.get('dbPool');
+    const { id } = req.params;
+    try {
+        await pool.query('DELETE FROM users WHERE id = $1', [id]);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('[ADMIN] Error deleting user:', error);
+        res.status(500).json({ message: 'Gagal menghapus user' });
+    }
+});
 
 // Broadcast route (harus setelah authenticateAdmin)
 router.post('/broadcast', async (req, res) => {
@@ -115,25 +178,17 @@ router.post('/broadcast', async (req, res) => {
 });
 
 
-// Approval pinjaman dinonaktifkan
-// router.get('/loans/pending', loanController.getPendingLoans); 
-router.get('/loans/pending', (req, res) => res.status(403).json({ message: 'Approval pinjaman dinonaktifkan.' }));
 // =========================================================
-//                       KELOLA PENGGUNA (Menggunakan adminController)
+//                       KELOLA PENGGUNA
 // =========================================================
-router.get('/users', adminController.getAllUsers);
-router.post('/users', adminController.createUser);
-router.put('/users/:id', adminController.updateUser);
-router.delete('/users/:id', adminController.deleteUser);
-
+// Users routes already defined at the top (lines 63-106)
 
 // =========================================================
-//                       KELOLA DENDA (Menggunakan adminController)
+//                       KELOLA DENDA - TEMPORARILY DISABLED
 // =========================================================
-// Menambah Denda Manual
-router.post('/penalty/apply', adminController.applyPenalty);
-// Mereset Denda (Lunas)
-router.post('/penalty/reset/:id', adminController.resetPenalty); 
+// TODO: Implement penalty functions
+// // TODO: router.post('/penalty/apply', adminController.applyPenalty);
+// // TODO: router.post('/penalty/reset/:id', adminController.resetPenalty); 
 
 // =========================================================
 //              VERIFIKASI PEMBAYARAN DENDA (Baru)
@@ -144,18 +199,18 @@ router.get('/fines/pending', async (req,res)=>{
     try {
         // Pastikan tabel ada (jika belum dibuat oleh upload proof pertama)
         await pool.query(`CREATE TABLE IF NOT EXISTS fine_payment_notifications (
-            id INT AUTO_INCREMENT PRIMARY KEY,
+            id SERIAL PRIMARY KEY,
             user_id INT NOT NULL,
             loan_ids TEXT NOT NULL,
             amount_total INT NOT NULL DEFAULT 0,
             method VARCHAR(30) NULL,
             proof_url VARCHAR(255) NULL,
-            status ENUM('pending_verification','paid','rejected') NOT NULL DEFAULT 'pending_verification',
+            status VARCHAR(30) NOT NULL DEFAULT 'pending_verification',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`);
-        const [rows] = await pool.query(`SELECT n.*, u.username, u.npm FROM fine_payment_notifications n JOIN users u ON n.user_id=u.id WHERE n.status='pending_verification' ORDER BY n.created_at DESC`);
-        res.json({ success:true, items: rows });
+        )`);
+        const result = await pool.query(`SELECT n.*, u.username, u.npm FROM fine_payment_notifications n JOIN users u ON n.user_id=u.id WHERE n.status='pending_verification' ORDER BY n.created_at DESC`);
+        res.json({ success:true, items: result.rows || [] });
     } catch (e){
         console.error('[ADMIN][FINES][PENDING] Error:', e); res.status(500).json({ success:false, message:'Gagal mengambil daftar pembayaran denda menunggu verifikasi.' });
     }
@@ -166,32 +221,29 @@ router.post('/fines/verify', async (req,res)=>{
     const pool = req.app.get('dbPool');
     const { notificationId, action } = req.body || {};
     if(!notificationId || !['approve','reject'].includes(action)) return res.status(400).json({ success:false, message:'notificationId & action (approve|reject) diperlukan.' });
-    let conn;
     try {
-        conn = await pool.getConnection();
-        await conn.beginTransaction();
-        const [notiRows] = await conn.query('SELECT * FROM fine_payment_notifications WHERE id=? FOR UPDATE',[notificationId]);
-        if(!notiRows.length) { await conn.rollback(); return res.status(404).json({ success:false, message:'Notifikasi tidak ditemukan.' }); }
-        const noti = notiRows[0];
-        if(noti.status !== 'pending_verification'){ await conn.rollback(); return res.status(400).json({ success:false, message:'Status sudah diverifikasi.' }); }
+        // PostgreSQL uses pool directly, no transactions for now
+        const notiResult = await pool.query('SELECT * FROM fine_payment_notifications WHERE id=$1',[notificationId]);
+        if(!notiResult.rows.length) { return res.status(404).json({ success:false, message:'Notifikasi tidak ditemukan.' }); }
+        const noti = notiResult.rows[0];
+        if(noti.status !== 'pending_verification'){ return res.status(400).json({ success:false, message:'Status sudah diverifikasi.' }); }
         const loanIds = JSON.parse(noti.loan_ids || '[]');
         if(action==='approve'){
             if(loanIds.length){
-                const placeholders = loanIds.map(()=>'?').join(',');
-                await conn.query(`UPDATE loans SET finePaid=1, finePaymentStatus='paid', finePaymentAt=NOW() WHERE id IN (${placeholders}) AND user_id=?`, [...loanIds, noti.user_id]);
+                const placeholders = loanIds.map((_, i)=>`$${i+1}`).join(',');
+                await pool.query(`UPDATE loans SET finePaid=1, finePaymentStatus='paid', finePaymentAt=CURRENT_TIMESTAMP WHERE id IN (${placeholders}) AND user_id=$${loanIds.length+1}`, [...loanIds, noti.user_id]);
                 // Kurangi denda_unpaid user
-                await conn.query(`UPDATE users SET denda_unpaid = GREATEST(denda_unpaid - ?,0) WHERE id=?`, [noti.amount_total, noti.user_id]);
+                await pool.query(`UPDATE users SET denda_unpaid = GREATEST(denda_unpaid - $1, 0) WHERE id=$2`, [noti.amount_total, noti.user_id]);
             }
-            await conn.query('UPDATE fine_payment_notifications SET status="paid" WHERE id=?',[notificationId]);
+            await pool.query('UPDATE fine_payment_notifications SET status=$1 WHERE id=$2',['paid', notificationId]);
         } else if(action==='reject') {
             // Kembalikan status loans ke awaiting_proof agar user bisa upload ulang
             if(loanIds.length){
-                const placeholders = loanIds.map(()=>'?').join(',');
-                await conn.query(`UPDATE loans SET finePaymentStatus='awaiting_proof', finePaymentProof=NULL WHERE id IN (${placeholders}) AND user_id=?`, [...loanIds, noti.user_id]);
+                const placeholders = loanIds.map((_, i)=>`$${i+1}`).join(',');
+                await pool.query(`UPDATE loans SET finePaymentStatus='awaiting_proof', finePaymentProof=NULL WHERE id IN (${placeholders}) AND user_id=$${loanIds.length+1}`, [...loanIds, noti.user_id]);
             }
-            await conn.query('UPDATE fine_payment_notifications SET status="rejected" WHERE id=?',[notificationId]);
+            await pool.query('UPDATE fine_payment_notifications SET status=$1 WHERE id=$2',['rejected', notificationId]);
         }
-        await conn.commit();
 
         // === SOCKET.IO NOTIFIKASI USER ===
         try {
@@ -215,9 +267,8 @@ router.post('/fines/verify', async (req,res)=>{
 
         res.json({ success:true, updated: notificationId, action });
     } catch (e){
-        if(conn) await conn.rollback();
         console.error('[ADMIN][FINES][VERIFY] Error:', e); res.status(500).json({ success:false, message:'Gagal memverifikasi pembayaran denda.' });
-    } finally { if(conn) conn.release(); }
+    }
 });
 
 
@@ -225,27 +276,24 @@ router.post('/fines/verify', async (req,res)=>{
 //                   KELOLA PINJAMAN & PENGEMBALIAN (Menggunakan loanController)
 // =========================================================
 
-// Daftar Pinjaman Tertunda
-router.get('/loans/pending', loanController.getPendingLoans); 
+// Get active loans (Diambil, Sedang Dipinjam, Terlambat)
+router.get('/loans/active', loanController.getActiveLoansList);
 // Daftar Pengembalian yang Sedang Dipinjam/Terlambat/Siap Dikembalikan
 router.get('/returns/review', (req, res, next) => {
-    console.log('🎯 [Route] /returns/review hit');
+    console.log('🎯 [Route] /admin/returns/review hit');
     next();
 }, loanController.getReturnsForReview);
 // Riwayat Pengembalian & Persetujuan (Dikembalikan, Ditolak)
 router.get('/history', loanController.getHistory);
 
-// Get active loans (Diambil, Sedang Dipinjam, Terlambat)
-router.get('/loans/active', loanController.getActiveLoans);
 // Send reminder to user
 router.post('/loans/send-reminder', loanController.sendLoanReminder);
 
-// Aksi Pinjaman: POST /api/admin/loans/approve (body: {loanId, expectedReturnDate})
-router.post('/loans/approve', loanController.approveLoan);
-router.post('/loans/scan', loanController.scanLoan); // body: { kodePinjam }
-router.post('/loans/start', loanController.startLoan); // body: { loanId }
+// Aksi Pinjaman: POST /api/admin/loans/scan (body: { kodePinjam })
+router.post('/loans/scan', loanController.scanLoan);
+// Aksi Pinjaman: POST /api/admin/loans/start (body: { loanId })
+router.post('/loans/start', loanController.startLoan);
 // Approval pinjaman dinonaktifkan
-// router.post('/loans/approve', loanController.approveLoan);
 router.post('/loans/approve', (req, res) => res.status(403).json({ message: 'Approval pinjaman dinonaktifkan.' }));
 // Aksi Pinjaman: POST /api/admin/loans/reject (body: {loanId})
 router.post('/loans/reject', loanController.rejectLoan);
@@ -257,7 +305,8 @@ router.post('/returns/reject', loanController.rejectReturnProof);
 
 // === FINE PAYMENTS ===
 router.get('/fine-payments', adminController.getPendingFinePayments);
-const { uploadFineProof } = require('../middleware/upload');
-router.post('/fine-payments/:id/verify', uploadFineProof.single('proof'), adminController.verifyFinePayment);
+// TODO: Implement verifyFinePayment in adminController
+// const { uploadFineProof } = require('../middleware/upload');
+// router.post('/fine-payments/:id/verify', uploadFineProof.single('proof'), adminController.verifyFinePayment);
 
 module.exports = router;
