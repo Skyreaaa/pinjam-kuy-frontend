@@ -87,7 +87,7 @@ const QRScanModal: React.FC<QRScanModalProps> = ({ isOpen, onClose, onScan, scan
     scannerRunningRef.current = true;
     html5QrRef.current
       .start(
-        { deviceId: { exact: selectedCameraId } },
+        { deviceId: selectedCameraId },
         { fps: 15, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
         async (decodedText) => {
           if (isActive && scannerRunningRef.current) {
