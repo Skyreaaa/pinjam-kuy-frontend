@@ -1465,6 +1465,127 @@ exports.getPaymentHistory = async (req, res) => {
     }
 };
 
+// Get user activity history (loans, returns, fines) for last 2 months
+exports.getUserActivityHistory = async (req, res) => {
+    const pool = getDBPool(req);
+    const userId = req.user.id;
+    
+    try {
+        // Calculate 2 months ago from now
+        const twoMonthsAgo = new Date();
+        twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+        
+        // Get all loans from last 2 months with book info
+        const loansResult = await pool.query(
+            `SELECT 
+                l.id,
+                l.kodepinjam AS "kodePinjam",
+                l.loandate AS "loanDate",
+                l.expectedreturndate AS "expectedReturnDate",
+                l.actualreturndate AS "actualReturnDate",
+                l.status,
+                l.fineamount AS "fineAmount",
+                l.finepaid AS "finePaid",
+                l.finereason AS "fineReason",
+                l.createdat AS "createdAt",
+                b.title AS "bookTitle",
+                b.author,
+                b.kodebuku AS "kodeBuku"
+             FROM loans l
+             JOIN books b ON l.book_id = b.id
+             WHERE l.user_id = $1 
+                AND l.createdat >= $2
+             ORDER BY l.createdat DESC`,
+            [userId, twoMonthsAgo]
+        );
+        
+        // Get fine payments from last 2 months
+        const paymentsResult = await pool.query(
+            `SELECT 
+                id,
+                method,
+                amount_total AS "amountTotal",
+                status,
+                created_at AS "createdAt",
+                verified_at AS "verifiedAt",
+                admin_notes AS "adminNotes"
+             FROM fine_payments
+             WHERE user_id = $1
+                AND created_at >= $2
+             ORDER BY created_at DESC`,
+            [userId, twoMonthsAgo]
+        );
+        
+        // Combine and format activity data
+        const activities = [];
+        
+        // Add loan activities
+        loansResult.rows.forEach(loan => {
+            // Loan request activity
+            activities.push({
+                type: 'loan_request',
+                date: loan.createdAt,
+                loanId: loan.id,
+                kodePinjam: loan.kodePinjam,
+                bookTitle: loan.bookTitle,
+                author: loan.author,
+                status: loan.status,
+                description: `Meminjam buku "${loan.bookTitle}"`
+            });
+            
+            // Return activity if returned
+            if (loan.actualReturnDate) {
+                activities.push({
+                    type: 'return',
+                    date: loan.actualReturnDate,
+                    loanId: loan.id,
+                    kodePinjam: loan.kodePinjam,
+                    bookTitle: loan.bookTitle,
+                    author: loan.author,
+                    status: loan.status,
+                    fineAmount: loan.fineAmount,
+                    finePaid: loan.finePaid,
+                    fineReason: loan.fineReason,
+                    description: `Mengembalikan buku "${loan.bookTitle}"${loan.fineAmount > 0 ? ` (Denda: Rp ${loan.fineAmount.toLocaleString('id-ID')})` : ''}`
+                });
+            }
+        });
+        
+        // Add fine payment activities
+        paymentsResult.rows.forEach(payment => {
+            activities.push({
+                type: 'fine_payment',
+                date: payment.createdAt,
+                paymentId: payment.id,
+                method: payment.method,
+                amount: payment.amountTotal,
+                status: payment.status,
+                verifiedAt: payment.verifiedAt,
+                adminNotes: payment.adminNotes,
+                description: `Pembayaran denda Rp ${payment.amountTotal.toLocaleString('id-ID')} (${payment.method === 'qris' ? 'QRIS' : payment.method === 'bank_transfer' ? 'Transfer Bank' : 'Tunai'})`
+            });
+        });
+        
+        // Sort all activities by date (newest first)
+        activities.sort((a, b) => new Date(b.date) - new Date(a.date));
+        
+        res.json({
+            success: true,
+            activities,
+            totalActivities: activities.length,
+            periodStart: twoMonthsAgo,
+            periodEnd: new Date()
+        });
+    } catch (error) {
+        console.error('❌ [getUserActivityHistory] Error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Gagal memuat riwayat aktivitas', 
+            error: error.message 
+        });
+    }
+};
+
 // Get active loans list for admin (Diambil, Sedang Dipinjam, Terlambat)
 exports.getActiveLoansList = async (req, res) => {
     const pool = getDBPool(req);

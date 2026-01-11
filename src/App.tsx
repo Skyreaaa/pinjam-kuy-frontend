@@ -10,6 +10,7 @@ import BookCollectionPage from './components/BookCollection/BookCollectionPage';
 import Home from './components/Home/Home';
 import { useNavigate } from 'react-router-dom';
 import Profile from './components/Profile/Profile';
+import ActivityHistory from './components/Profile/ActivityHistory';
 // Asumsi komponen-komponen ini ada:
 
 import AdminDashboard from './components/DashboardAdmin/AdminDashboard'; 
@@ -260,6 +261,7 @@ function App() {
             }
           }}
         />} />
+        <Route path="/activity-history" element={<ActivityHistory />} />
         <Route path="/admin-dashboard" element={<RequireAuth role="admin"><AdminDashboard /></RequireAuth>} />
         <Route path="/admin-users" element={<RequireAuth role="admin"><AdminDashboard initialView="users" /></RequireAuth>} />
         <Route path="/admin-buku" element={<RequireAuth role="admin"><AdminDashboard initialView="books" /></RequireAuth>} />

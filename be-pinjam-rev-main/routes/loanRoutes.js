@@ -68,5 +68,8 @@ router.get('/payment-history', loanController.getPaymentHistory);
 // Rute: GET /api/loans/user-loans - Get all user loans (untuk FinePaymentPage)
 router.get('/user-loans', loanController.getUserLoans);
 
+// Rute: GET /api/loans/activity-history - Get user activity history (last 2 months)
+router.get('/activity-history', loanController.getUserActivityHistory);
+
 
 module.exports = router;

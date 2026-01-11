@@ -10,7 +10,8 @@ import {
   FaTrash,
   FaEdit,
   FaTimes,
-  FaSave
+  FaSave,
+  FaHistory
 } from 'react-icons/fa';
 import './Profile.css';
 
@@ -404,9 +405,19 @@ const Profile: React.FC<ProfileProps> = ({
           <h3 className="biodata-title">
             Biodata
             {!isEditing && (
-              <button className="icon-btn" onClick={handleEditProfile} title="Edit Biodata">
-                <FaEdit />
-              </button>
+              <>
+                <button className="icon-btn" onClick={handleEditProfile} title="Edit Biodata">
+                  <FaEdit />
+                </button>
+                <button 
+                  className="icon-btn" 
+                  onClick={() => window.location.href = '/activity-history'} 
+                  title="Riwayat Aktivitas"
+                  style={{ marginLeft: '8px' }}
+                >
+                  <FaHistory />
+                </button>
+              </>
             )}
           </h3>
 
