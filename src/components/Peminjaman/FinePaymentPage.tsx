@@ -44,6 +44,25 @@ const FinePaymentPage: React.FC = () => {
   const [showProofModal, setShowProofModal] = useState<string | null>(null);
   const [hasPendingPayment, setHasPendingPayment] = useState(false);
   
+  // Helper: Convert proof URL to Cloudinary URL
+  const getProofUrl = (url?: string) => {
+    if (!url) return null;
+    
+    // Already a full URL (http/https)
+    if (url.startsWith('http')) return url;
+    
+    const cloudName = 'dxew9tloz';
+    
+    // Clean the path: remove /uploads/ prefix and any duplicate folders
+    let publicId = url.replace(/^\/uploads\//, '').replace(/^uploads\//, '');
+    
+    // Remove duplicate fine-proofs/ if exists
+    publicId = publicId.replace(/^fine-proofs\/fine-proofs\//, 'fine-proofs/');
+    
+    // Construct Cloudinary URL with the clean public_id
+    return `https://res.cloudinary.com/${cloudName}/image/upload/${publicId}`;
+  };
+  
   // Bank transfer form
   const [bankForm, setBankForm] = useState({
     accountName: '',
@@ -502,7 +521,7 @@ const FinePaymentPage: React.FC = () => {
                       <div className="history-row">
                         <button 
                           className="btn-view-proof"
-                          onClick={() => setShowProofModal(payment.proof_url!)}
+                          onClick={() => setShowProofModal(getProofUrl(payment.proof_url) || '')}
                         >
                           <FaImage /> Lihat Bukti
                         </button>
