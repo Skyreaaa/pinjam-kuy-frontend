@@ -272,6 +272,14 @@ const LoansPage: React.FC = () => {
 								)}
 							</div>
 							<div className="loan-card-actions" style={{display:'flex',flexDirection:'column',gap:8}}>
+								{/* DEBUG: Test buttons - always show for debugging */}
+								<button className="loan-action-btn" style={{background:'#2196f3'}}>
+									🔍 DEBUG: Tunjukkan QR Test
+								</button>
+								<button className="loan-action-btn" style={{background:'#e74c3c'}}>
+									❌ DEBUG: Batalkan Test  
+								</button>
+								
 								{/* Button untuk buku digital: Download File */}
 								{isDigitalBook && loan.attachment_url && (
 									<button 
