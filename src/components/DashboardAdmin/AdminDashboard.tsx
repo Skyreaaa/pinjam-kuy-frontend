@@ -100,7 +100,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialView }) => {
                 adminNotes: notes || ''
             });
             
-            fetchFinePayments();
+            // Refresh list setelah verifikasi berhasil
+            await fetchFinePayments();
+            
+            // Show success message
+            alert(`Pembayaran berhasil ${action === 'approve' ? 'disetujui' : 'ditolak'}.`);
         } catch (e: any) {
             console.error('[ADMIN] Error verifying payment:', e);
             setFineError(e.response?.data?.message || e.message || 'Gagal verifikasi pembayaran');

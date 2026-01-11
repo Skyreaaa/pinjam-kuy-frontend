@@ -403,10 +403,12 @@ const AdminFinePaymentsPage: React.FC<AdminFinePaymentsPageProps> = ({ finePayme
 	const [selectedPayment, setSelectedPayment] = useState<FinePayment | null>(null);
 	const [showRejectModal, setShowRejectModal] = useState(false);
 
-	const handleApprove = (proofFile?: File, notes?: string) => {
+	const handleApprove = async (proofFile?: File, notes?: string) => {
 		if (selectedPayment) {
-			onVerify(selectedPayment.id, 'approve', proofFile, notes);
+			await onVerify(selectedPayment.id, 'approve', proofFile, notes);
+			// Force close all modals
 			setSelectedPayment(null);
+			setShowRejectModal(false);
 		}
 	};
 
@@ -414,11 +416,12 @@ const AdminFinePaymentsPage: React.FC<AdminFinePaymentsPageProps> = ({ finePayme
 		setShowRejectModal(true);
 	};
 
-	const handleRejectSubmit = (reason: string) => {
+	const handleRejectSubmit = async (reason: string) => {
 		if (selectedPayment) {
-			onVerify(selectedPayment.id, 'reject', undefined, reason);
-			setSelectedPayment(null);
+			await onVerify(selectedPayment.id, 'reject', undefined, reason);
+			// Force close all modals
 			setShowRejectModal(false);
+			setSelectedPayment(null);
 		}
 	};
 
