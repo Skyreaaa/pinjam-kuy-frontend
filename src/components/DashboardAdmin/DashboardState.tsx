@@ -59,11 +59,11 @@ const DashboardState: React.FC = () => {
           axios.get('/api/admin/stats/notification-stats', { headers })
         ]);
         setStats(statsRes.data);
-        setTopBooks(topBooksRes.data);
+        setTopBooks(Array.isArray(topBooksRes.data) ? topBooksRes.data : []);
         setMonthlyActivity(monthlyRes.data);
-        setActiveLoans(activeLoansRes.data.activeLoans);
-        setOutstandingFines(outstandingFinesRes.data.totalOutstandingFines);
-        setNotifStats(notifStatsRes.data);
+        setActiveLoans(activeLoansRes.data.activeLoans || 0);
+        setOutstandingFines(outstandingFinesRes.data.totalOutstandingFines || 0);
+        setNotifStats(Array.isArray(notifStatsRes.data) ? notifStatsRes.data : []);
         setError(null);
       } catch (err: any) {
         setError('Gagal memuat statistik.');
@@ -225,7 +225,7 @@ const DashboardState: React.FC = () => {
       <div className="extra-reports" style={{ display: 'flex', flexWrap: 'wrap', gap: 24, marginTop: 32 }}>
         <DashboardCard title="Top 5 Buku Terpopuler" value={null} color="#36b9cc">
           <ol style={{ margin: 0, paddingLeft: 18 }}>
-            {topBooks.map((book, idx) => (
+            {Array.isArray(topBooks) && topBooks.map((book, idx) => (
               <li key={book.id}>
                 <b>{book.title}</b> oleh {book.author} <span style={{ color: '#888' }}>({book.category})</span> — <span style={{ color: '#36b9cc' }}>{book.borrowCount}x dipinjam</span>
               </li>
@@ -236,7 +236,7 @@ const DashboardState: React.FC = () => {
         <DashboardCard title="Total Denda Outstanding" value={`Rp ${outstandingFines?.toLocaleString('id-ID') || 0}`} color="#e74a3b" />
         <DashboardCard title="Statistik Notifikasi (30 hari)" value={null} color="#4e73df">
           <ul style={{ margin: 0, paddingLeft: 18 }}>
-            {notifStats.map((row, idx) => (
+            {Array.isArray(notifStats) && notifStats.map((row, idx) => (
               <li key={row.date}>
                 {row.date}: <span style={{ color: '#4e73df', fontWeight: 500 }}>{row.notifCount}</span> notifikasi
               </li>
