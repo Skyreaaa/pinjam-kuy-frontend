@@ -90,7 +90,7 @@ const QRScanModal: React.FC<QRScanModalProps> = ({ isOpen, onClose, onScan, scan
     html5QrRef.current
       .start(
         { deviceId: selectedCameraId },
-        { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0, timeout: 5000 },
+        { fps: 10, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
         async (decodedText) => {
           if (isActive && scannerRunningRef.current) {
             // Jangan stop scanner, biarkan tetap berjalan untuk scan berikutnya
