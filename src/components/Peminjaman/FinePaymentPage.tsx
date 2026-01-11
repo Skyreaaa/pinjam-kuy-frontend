@@ -26,6 +26,7 @@ interface PaymentHistory {
   proof_url?: string;
   account_name?: string;
   bank_name?: string;
+  loan_ids?: string;
 }
 
 const FinePaymentPage: React.FC = () => {
@@ -537,6 +538,40 @@ const FinePaymentPage: React.FC = () => {
                     {payment.status === 'rejected' && payment.admin_notes && (
                       <div className="rejection-reason">
                         <strong>Alasan Ditolak:</strong> {payment.admin_notes}
+                      </div>
+                    )}
+                    {payment.status === 'rejected' && (
+                      <div className="history-row">
+                        <button 
+                          className="btn-reupload"
+                          onClick={() => {
+                            // Parse loan IDs from payment
+                            try {
+                              const loanIds = JSON.parse(payment.loan_ids || '[]');
+                              if (Array.isArray(loanIds) && loanIds.length > 0) {
+                                setSelectedFines(loanIds);
+                                setActiveTab('pembayaran');
+                                alert('Silakan pilih metode pembayaran dan upload bukti baru.');
+                              }
+                            } catch (e) {
+                              alert('Gagal memuat data pembayaran yang ditolak.');
+                            }
+                          }}
+                          style={{
+                            background: 'linear-gradient(135deg, #ff9800, #ff6f00)',
+                            color: '#fff',
+                            border: 'none',
+                            padding: '10px 20px',
+                            borderRadius: 8,
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 8
+                          }}
+                        >
+                          <FaMoneyBillWave /> Upload Ulang Bukti
+                        </button>
                       </div>
                     )}
                   </div>
