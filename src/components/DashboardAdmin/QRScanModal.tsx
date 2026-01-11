@@ -1,4 +1,3 @@
-// Hilangkan background putih dan paksa video fullscreen
 import './qrscanmodal-override.css';
 import './qrscanmodal-video-fullscreen.css';
 
@@ -13,268 +12,482 @@ interface QRScanModalProps {
   scanning: boolean;
 }
 
-const QRScanModal: React.FC<QRScanModalProps> = ({ isOpen, onClose, onScan, scanning }) => {
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [cameras, setCameras] = useState<{id:string,label:string}[]>([]);
-  const [selectedCameraId, setSelectedCameraId] = useState<string | undefined>(undefined);
-  const scannerRef = useRef<HTMLDivElement>(null);
-  const html5QrRef = useRef<Html5Qrcode|null>(null);
-  const scannerRunningRef = useRef<boolean>(false);
-  const [isStopping, setIsStopping] = useState(false);
-  const lastScannedRef = useRef<{code: string; time: number} | null>(null);
-  interface ScanResult {
-    bookTitle: string;
-    borrowerName: string;
-    loanDate: string;
-    message?: string;
-  }
-  const [scanResult, setScanResult] = useState<ScanResult|null>(null);
-  const [loadingDetail, setLoadingDetail] = useState(false);
+interface ScanResult {
+  success?: boolean;
+  message: string;
+  bookTitle?: string;
+  borrowerName?: string;
+  loanDate?: string;
+}
 
-  // Fetch camera list
+/**
+ * Completely rewritten QR Scanner Modal
+ * Cleaner implementation with proper cleanup
+ */
+const QRScanModal: React.FC<QRScanModalProps> = ({ isOpen, onClose }) => {
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [cameras, setCameras] = useState<{ id: string; label: string }[]>([]);
+  const [selectedCameraId, setSelectedCameraId] = useState<string | undefined>(undefined);
+  const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Refs
+  const scannerRef = useRef<HTMLDivElement>(null);
+  const qrRef = useRef<Html5Qrcode | null>(null);
+  const isRunningRef = useRef(false);
+  const lastScannedRef = useRef<{ code: string; timestamp: number } | null>(null);
+
+  // Initialize camera on modal open
   useEffect(() => {
     if (!isOpen) return;
-    setErrorMsg(null);
-    
-    // Request camera permission first
-    navigator.mediaDevices.getUserMedia({ video: true })
-      .then(() => {
-        // Camera permission granted, get cameras
-        Html5Qrcode.getCameras().then(devices => {
-          console.log('📷 Available cameras:', devices);
-          setCameras(devices);
-          if (devices.length > 0) {
-            // Prefer back camera for mobile, otherwise use first available
-            const backCamera = devices.find(d => d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('rear') || d.label.toLowerCase().includes('environment'));
-            setSelectedCameraId(backCamera?.id || devices[0].id);
-          }
-          if (devices.length === 0) {
-            setErrorMsg('Tidak ada kamera yang terdeteksi di perangkat ini.');
-          }
-        }).catch(err => {
-          console.error('❌ Error getting cameras:', err);
-          setErrorMsg('Tidak dapat mengakses daftar kamera. Pastikan perangkat memiliki kamera.');
-        });
-      })
-      .catch(err => {
-        console.error('❌ Camera permission denied:', err);
-        setErrorMsg('Izin kamera ditolak. Silakan beri izin kamera di browser Anda untuk melanjutkan scan QR.');
-      });
-    
-    return () => { 
-      setCameras([]); 
-      setSelectedCameraId(undefined); 
+
+    const initCamera = async () => {
+      try {
+        setErrorMsg(null);
+        const devices = await Html5Qrcode.getCameras();
+        console.log('📷 Available cameras:', devices);
+
+        if (devices.length === 0) {
+          setErrorMsg('❌ Tidak ada kamera ditemukan');
+          return;
+        }
+
+        setCameras(devices);
+
+        // Prioritize back camera
+        const backCam = devices.find(
+          (d) =>
+            d.label.toLowerCase().includes('back') ||
+            d.label.toLowerCase().includes('rear') ||
+            d.label.toLowerCase().includes('environment')
+        );
+
+        setSelectedCameraId(backCam?.id || devices[0].id);
+      } catch (err) {
+        console.error('❌ Camera init error:', err);
+        setErrorMsg('❌ Tidak dapat mengakses kamera. Berikan izin kamera di pengaturan browser.');
+      }
+    };
+
+    initCamera();
+
+    return () => {
+      setCameras([]);
+      setSelectedCameraId(undefined);
     };
   }, [isOpen]);
 
-  // Start/stop scanner
+  // Start scanner when camera is selected
   useEffect(() => {
     if (!isOpen || !selectedCameraId || !scannerRef.current) return;
-    setErrorMsg(null);
-    
-    // Stop/clear instance lama jika ada
-    if (html5QrRef.current) {
-      try { html5QrRef.current.stop(); } catch (e) {}
-      try { html5QrRef.current.clear(); } catch (e) {}
-      html5QrRef.current = null;
-      scannerRunningRef.current = false;
-    }
-    
-    // Tunggu sebentar sebelum membuat scanner baru
-    setTimeout(() => {
-      if (!scannerRef.current || !isOpen) return;
-      
-      html5QrRef.current = new Html5Qrcode(scannerRef.current!.id);
-      let isActive = true;
-      scannerRunningRef.current = true;
-      console.log('📷 Starting QR scanner with device:', selectedCameraId);
-      html5QrRef.current
-        .start(
-          { deviceId: selectedCameraId },
-          { 
-            fps: 15, 
-            qrbox: { width: 380, height: 380 }, 
-            aspectRatio: 1.0,
-            disableFlip: false 
-          },
-        async (decodedText) => {
-          if (isActive && scannerRunningRef.current) {
-            // Jangan stop scanner, biarkan tetap berjalan untuk scan berikutnya
-            if (decodedText) {
-              console.log('✅ QR Code detected:', decodedText);
-              // Cek apakah QR code yang sama baru saja di-scan (dalam 3 detik terakhir)
-              const now = Date.now();
-              if (lastScannedRef.current && 
-                  lastScannedRef.current.code === decodedText && 
-                  now - lastScannedRef.current.time < 3000) {
-                console.log('⏭️ Duplicate scan skipped (within 3s)');
-                // Skip - QR yang sama baru saja di-scan
-                return;
-              }
-              
-              // Update last scanned
-              lastScannedRef.current = { code: decodedText, time: now };
-              
-              console.log('📤 Sending scan request to backend:', decodedText);
-              setLoadingDetail(true);
-              try {
-                // Use adminApiAxios to scan kodePinjam
-                const res = await adminApiAxios.post(`/admin/loans/scan`, { kodePinjam: decodedText });
-                const data = res.data;
-                console.log('📦 Scan QR Response:', data);
-                // Backend response: { success, message, loanId?, bookTitle?, borrowerName?, loanDate? }
-                setScanResult({
-                  bookTitle: data.bookTitle || '-',
-                  borrowerName: data.borrowerName || '-',
-                  loanDate: data.loanDate || '-',
-                  message: data.message
-                });
-              } catch (e: any) {
-                console.error('❌ Scan QR Error:', e?.response?.data || e.message);
-                const errorData = e?.response?.data || {};
-                const errorMessage = errorData.message || 'Gagal mengambil detail peminjaman.';
-                setScanResult({
-                  bookTitle: errorData.bookTitle || '-',
-                  borrowerName: errorData.borrowerName || '-',
-                  loanDate: errorData.loanDate || '-',
-                  message: errorMessage
-                });
-              } finally {
-                setLoadingDetail(false);
-              }
-            }
+
+    const startScanner = async () => {
+      try {
+        // Stop existing scanner
+        if (qrRef.current && isRunningRef.current) {
+          try {
+            await qrRef.current.stop();
+          } catch (e) {
+            console.log('⚠️ Stop error (ignored)');
           }
-        },
-        (err) => {
-          // ignore scan errors, only show error if camera fails
         }
-      )
-        .catch((err) => {
-          setErrorMsg('Gagal memulai kamera: ' + err);
-        });
-      
-      return () => {
-        isActive = false;
-        if (html5QrRef.current && scannerRunningRef.current) {
-          try {
-            html5QrRef.current.stop().catch(() => {});
-          } catch (e) {}
-          try {
-            html5QrRef.current.clear();
-          } catch (e) {}
-          html5QrRef.current = null;
-          scannerRunningRef.current = false;
-        }
-      };
-    }, 300);
+
+        // Create new instance
+        qrRef.current = new Html5Qrcode(scannerRef.current!.id);
+        isRunningRef.current = true;
+
+        console.log('🎬 Starting scanner...');
+
+        await qrRef.current.start(
+          { deviceId: selectedCameraId },
+          {
+            fps: 15,
+            qrbox: { width: 400, height: 400 },
+            aspectRatio: 1.0,
+          },
+          (decodedText) => {
+            handleQRDetected(decodedText);
+          },
+          () => {
+            // Suppress error logging for QR not found
+          }
+        );
+      } catch (err) {
+        console.error('❌ Scanner error:', err);
+        setErrorMsg(`❌ Gagal memulai scanner: ${err}`);
+      }
+    };
+
+    startScanner();
+
+    return () => {
+      stopScanner();
+    };
   }, [isOpen, selectedCameraId]);
 
-  const handleClose = async () => {
-    if (isStopping) return;
-    setIsStopping(true);
+  const stopScanner = async () => {
+    if (!qrRef.current) return;
+
     try {
-      if (html5QrRef.current && scannerRunningRef.current) {
-        try { 
-          await html5QrRef.current.stop(); 
-        } catch (e) {
-          console.log('⚠️ Stop error (ignored):', e);
-        }
-        try { 
-          await html5QrRef.current.clear(); 
-        } catch (e) {
-          console.log('⚠️ Clear error (ignored):', e);
-        }
-        html5QrRef.current = null;
-        scannerRunningRef.current = false;
+      isRunningRef.current = false;
+      await qrRef.current.stop();
+      try {
+        qrRef.current.clear();
+      } catch (e) {
+        // Ignore clear errors
       }
-      setScanResult(null);
-    } finally {
-      setIsStopping(false);
-      onClose();
+      qrRef.current = null;
+    } catch (err) {
+      console.log('⚠️ Cleanup error (ignored)');
     }
   };
+
+  const handleQRDetected = async (code: string) => {
+    if (!isRunningRef.current) return;
+
+    // Debounce: skip if same code scanned within 2 seconds
+    const now = Date.now();
+    if (
+      lastScannedRef.current &&
+      lastScannedRef.current.code === code &&
+      now - lastScannedRef.current.timestamp < 2000
+    ) {
+      console.log('⏭️ Duplicate scan skipped');
+      return;
+    }
+
+    lastScannedRef.current = { code, timestamp: now };
+
+    console.log('✅ QR detected:', code);
+    setLoading(true);
+
+    try {
+      const response = await adminApiAxios.post('/admin/loans/scan', {
+        kodePinjam: code,
+      });
+
+      console.log('📦 Response:', response.data);
+
+      setScanResult({
+        success: response.data.success,
+        message: response.data.message,
+        bookTitle: response.data.bookTitle,
+        borrowerName: response.data.borrowerName,
+        loanDate: response.data.loanDate,
+      });
+    } catch (err: any) {
+      console.error('❌ API error:', err);
+      setScanResult({
+        success: false,
+        message:
+          err?.response?.data?.message || 'Gagal memproses pemindaian QR',
+        bookTitle: err?.response?.data?.bookTitle,
+        borrowerName: err?.response?.data?.borrowerName,
+        loanDate: err?.response?.data?.loanDate,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClose = async () => {
+    await stopScanner();
+    setScanResult(null);
+    onClose();
+  };
+
+  const handleScanAgain = () => {
+    setScanResult(null);
+    lastScannedRef.current = null;
+  };
+
   if (!isOpen) return null;
+
   return (
-    <>
-      <div className="qrscan-modal-overlay" style={{position:'fixed',top:0,left:0,width:'100vw',height:'100vh',background:'rgba(0,0,0,0.18)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:0,margin:0}}>
-        <div className="qrscan-modal" style={{background:'#fff',borderRadius:8,width:'100vw',height:'100vh',maxWidth:'100vw',maxHeight:'100vh',boxShadow:'none',padding:0,position:'relative',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
-          <button onClick={handleClose} style={{position:'absolute',top:18,right:24,fontSize:32,background:'rgba(255,255,255,0.7)',border:'none',cursor:'pointer',zIndex:2,borderRadius:8,padding:'2px 12px'}} aria-label="Tutup">&times;</button>
-          <div style={{display:'flex',flexDirection:'column',alignItems:'center',width:'100vw',height:'100vh',justifyContent:'center',padding:0,margin:0}}>
-            <div style={{display:'flex',alignItems:'center',gap:12,marginTop:24,marginBottom:8}}>
-              <span role="img" aria-label="camera" style={{fontSize:32}}>📷</span>
-              <h2 style={{fontWeight:700,fontSize:'2.2rem',margin:0}}>Scan QR Peminjaman</h2>
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        background: 'rgba(0, 0, 0, 0.2)',
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <div
+        style={{
+          position: 'relative',
+          width: '100vw',
+          height: '100vh',
+          maxWidth: '100vw',
+          maxHeight: '100vh',
+          background: '#fff',
+          borderRadius: 12,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 0,
+          margin: 0,
+          overflow: 'hidden',
+        }}
+      >
+        {/* Close Button */}
+        <button
+          onClick={handleClose}
+          style={{
+            position: 'absolute',
+            top: 20,
+            right: 20,
+            zIndex: 2000,
+            fontSize: 28,
+            background: 'rgba(255, 255, 255, 0.9)',
+            border: 'none',
+            borderRadius: 8,
+            padding: '4px 12px',
+            cursor: 'pointer',
+            fontWeight: 'bold',
+            color: '#333',
+          }}
+        >
+          ×
+        </button>
+
+        {/* Loading State */}
+        {loading && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              background: 'rgba(255, 255, 255, 0.9)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1999,
+            }}
+          >
+            <div style={{ textAlign: 'center' }}>
+              <div
+                style={{
+                  fontSize: 32,
+                  marginBottom: 16,
+                  animation: 'spin 1s linear infinite',
+                }}
+              >
+                ⏳
+              </div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: '#333' }}>
+                Memproses pemindaian...
+              </div>
             </div>
-            {cameras.length > 1 && (
-              <div style={{marginBottom:12, width:'100vw',maxWidth:400}}>
-                <select
-                  className="qrscan-device-select"
-                  value={selectedCameraId}
-                  onChange={e => setSelectedCameraId(e.target.value)}
-                  style={{marginBottom:8, width:'100%', padding:'8px', borderRadius:6}}
-                >
-                  {cameras.map(d => (
-                    <option key={d.id} value={d.id}>{d.label || `Kamera ${d.id.slice(-4)}`}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <div className="qrscan-camera-container" style={{width:'80vw',height:'45vw',maxWidth:'900px',maxHeight:'506px',background:'transparent',borderRadius:'2.5vw',boxShadow:'0 2px 16px #0003',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',margin:'0 auto'}}>
-              <div id="qr-html5-video" ref={scannerRef} style={{width:'100%',height:'100%',background:'transparent',borderRadius:'2.5vw',overflow:'hidden',display:'flex',alignItems:'center',justifyContent:'center'}} />
-            </div>
-            {errorMsg && <div className="qrscan-error">{errorMsg}</div>}
-            {loadingDetail && (
-              <div style={{position:'fixed',top:0,left:0,width:'100vw',height:'100vh',background:'rgba(255,255,255,0.7)',zIndex:2000,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <div>Memuat detail peminjaman...</div>
-              </div>
-            )}
-            {scanResult && (
-              <div style={{position:'fixed',top:0,left:0,width:'100vw',height:'100vh',background:'rgba(0,0,0,0.25)',zIndex:2100,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <div style={{background:'#fff',borderRadius:12,padding:'32px 24px',minWidth:320,maxWidth:450,boxShadow:'0 4px 32px #0003',textAlign:'center'}}>
-                  {scanResult.message && (scanResult.message.includes('QR Expired') || scanResult.message.includes('Status sekarang')) ? (
-                    <>
-                      <h3 style={{color:'#e53935',marginBottom:16}}>
-                        {scanResult.message.includes('QR Expired') ? '⏰ QR Expired' : '⚠️ Tidak Dapat Diproses'}
-                      </h3>
-                      <div style={{margin:'16px 0',color:'#e67e22',fontWeight:500,fontSize:15,lineHeight:1.5}}>{scanResult.message}</div>
-                      {scanResult.bookTitle && scanResult.bookTitle !== '-' && (
-                        <div style={{marginTop:16,padding:12,background:'#f5f5f5',borderRadius:8,textAlign:'left'}}>
-                          <div style={{fontSize:13,marginBottom:4}}><b>Buku:</b> {scanResult.bookTitle}</div>
-                          <div style={{fontSize:13,marginBottom:4}}><b>Peminjam:</b> {scanResult.borrowerName}</div>
-                        </div>
-                      )}
-                      <button style={{marginTop:18,padding:'10px 28px',borderRadius:6,background:'#e53935',color:'#fff',border:'none',fontWeight:600,cursor:'pointer',fontSize:14}} onClick={()=>{setScanResult(null);lastScannedRef.current=null;onClose();}}>Tutup</button>
-                    </>
-                  ) : (
-                    <>
-                      <h3 style={{color:'#27ae60',marginBottom:16}}>✅ Peminjaman Berhasil!</h3>
-                      <div style={{marginTop:16,padding:16,background:'#f0f9ff',borderRadius:8,textAlign:'left'}}>
-                        <div style={{fontSize:14,marginBottom:8,display:'flex',justifyContent:'space-between'}}>
-                          <span style={{color:'#666'}}>Buku:</span>
-                          <b style={{color:'#2c3e50',maxWidth:'60%',textAlign:'right'}}>{scanResult.bookTitle}</b>
-                        </div>
-                        <div style={{fontSize:14,marginBottom:8,display:'flex',justifyContent:'space-between'}}>
-                          <span style={{color:'#666'}}>Peminjam:</span>
-                          <b style={{color:'#2c3e50'}}>{scanResult.borrowerName}</b>
-                        </div>
-                        <div style={{fontSize:14,display:'flex',justifyContent:'space-between'}}>
-                          <span style={{color:'#666'}}>Waktu Pinjam:</span>
-                          <b style={{color:'#2c3e50'}}>{new Date(scanResult.loanDate).toLocaleString('id-ID', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</b>
-                        </div>
-                      </div>
-                      <div style={{marginTop:12,padding:12,background:'#fff3cd',borderRadius:6,fontSize:13,color:'#856404'}}>
-                        📢 Notifikasi telah dikirim ke peminjam
-                      </div>
-                      <button style={{marginTop:18,padding:'10px 28px',borderRadius:6,background:'#27ae60',color:'#fff',border:'none',fontWeight:600,cursor:'pointer',fontSize:14,marginRight:8}} onClick={()=>{setScanResult(null);lastScannedRef.current=null;}}>Scan Lagi</button>
-                      <button style={{marginTop:18,padding:'10px 28px',borderRadius:6,background:'#666',color:'#fff',border:'none',fontWeight:600,cursor:'pointer',fontSize:14}} onClick={()=>{setScanResult(null);onClose();}}>Selesai</button>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
+            <style>{`
+              @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+              }
+            `}</style>
           </div>
+        )}
+
+        {/* Scan Result */}
+        {scanResult && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              background: 'rgba(0, 0, 0, 0.7)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1998,
+            }}
+          >
+            <div
+              style={{
+                background: '#fff',
+                borderRadius: 16,
+                padding: 32,
+                maxWidth: 400,
+                textAlign: 'center',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: scanResult.success ? 48 : 40,
+                  marginBottom: 16,
+                }}
+              >
+                {scanResult.success ? '✅' : '❌'}
+              </div>
+
+              <h3
+                style={{
+                  marginBottom: 12,
+                  color: scanResult.success ? '#1890ff' : '#e53935',
+                  fontSize: 18,
+                  fontWeight: 600,
+                }}
+              >
+                {scanResult.message}
+              </h3>
+
+              {scanResult.bookTitle && (
+                <p style={{ marginBottom: 8, color: '#666', fontSize: 14 }}>
+                  <strong>Buku:</strong> {scanResult.bookTitle}
+                </p>
+              )}
+
+              {scanResult.borrowerName && (
+                <p style={{ marginBottom: 8, color: '#666', fontSize: 14 }}>
+                  <strong>Peminjam:</strong> {scanResult.borrowerName}
+                </p>
+              )}
+
+              {scanResult.loanDate && (
+                <p style={{ marginBottom: 16, color: '#666', fontSize: 14 }}>
+                  <strong>Tanggal:</strong> {scanResult.loanDate}
+                </p>
+              )}
+
+              <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+                <button
+                  onClick={handleScanAgain}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: 8,
+                    border: 'none',
+                    background: '#1890ff',
+                    color: '#fff',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Scan Lagi
+                </button>
+                <button
+                  onClick={handleClose}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: 8,
+                    border: '1px solid #d9d9d9',
+                    background: '#fff',
+                    color: '#333',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Header */}
+        <div style={{ marginBottom: 24, textAlign: 'center' }}>
+          <h2 style={{ fontSize: 28, fontWeight: 700, margin: '0 0 8px 0' }}>
+            📷 Scan QR Peminjaman
+          </h2>
+          <p style={{ color: '#666', margin: 0 }}>
+            Arahkan kamera ke kode QR buku
+          </p>
+        </div>
+
+        {/* Camera Selection */}
+        {cameras.length > 1 && (
+          <div style={{ marginBottom: 16, width: '100%', maxWidth: 300 }}>
+            <select
+              value={selectedCameraId || ''}
+              onChange={(e) => setSelectedCameraId(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: 8,
+                border: '1px solid #d9d9d9',
+                fontSize: 14,
+                background: '#fff',
+                cursor: 'pointer',
+              }}
+            >
+              {cameras.map((cam) => (
+                <option key={cam.id} value={cam.id}>
+                  {cam.label || `Kamera ${cam.id.slice(-4)}`}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Error Message */}
+        {errorMsg && (
+          <div
+            style={{
+              background: '#ffebee',
+              color: '#c62828',
+              padding: 12,
+              borderRadius: 8,
+              marginBottom: 16,
+              maxWidth: 300,
+              fontSize: 14,
+            }}
+          >
+            {errorMsg}
+          </div>
+        )}
+
+        {/* QR Scanner Container */}
+        {!errorMsg && (
+          <div
+            style={{
+              width: '80vw',
+              height: '45vw',
+              maxWidth: 500,
+              maxHeight: 500,
+              background: '#f5f5f5',
+              borderRadius: 12,
+              overflow: 'hidden',
+              boxShadow: '0 2px 16px rgba(0, 0, 0, 0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 16,
+            }}
+          >
+            <div
+              id="qr-scanner"
+              ref={scannerRef}
+              style={{
+                width: '100%',
+                height: '100%',
+              }}
+            />
+          </div>
+        )}
+
+        {/* Instructions */}
+        <div
+          style={{
+            fontSize: 13,
+            color: '#666',
+            textAlign: 'center',
+            maxWidth: 300,
+          }}
+        >
+          💡 Pastikan pencahayaan cukup untuk hasil pemindaian terbaik
         </div>
       </div>
-    </>
+    </div>
   );
 };
 
