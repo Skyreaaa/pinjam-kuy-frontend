@@ -94,34 +94,43 @@ router.put('/users/:id', async (req, res) => {
     const { npm, username, role, fakultas, prodi, angkatan, password } = req.body;
     
     console.log('[ADMIN] PUT /users/:id - Request data:', { id, npm, username, role, fakultas, prodi, angkatan, passwordProvided: !!password });
+    console.log('[ADMIN] Raw password field:', password);
     
     try {
         let query, params;
         
         if (password && password.trim() !== '') {
             // Update dengan password baru
-            console.log('[ADMIN] Updating user WITH new password');
+            console.log('[ADMIN] Updating user WITH new password, length:', password.length);
             const bcrypt = require('bcrypt');
-            const hashedPassword = await bcrypt.hash(password, 10);
-            query = 'UPDATE users SET npm = $1, username = $2, role = $3, fakultas = $4, prodi = $5, angkatan = $6, password = $7 WHERE id = $8 RETURNING *';
+            const saltRounds = 10;
+            const hashedPassword = await bcrypt.hash(password.trim(), saltRounds);
+            console.log('[ADMIN] Password hashed successfully, hash length:', hashedPassword.length);
+            
+            query = 'UPDATE users SET npm = $1, username = $2, role = $3, fakultas = $4, prodi = $5, angkatan = $6, password = $7 WHERE id = $8 RETURNING id, npm, username, role, fakultas, prodi, angkatan';
             params = [npm, username, role, fakultas || null, prodi || null, angkatan || null, hashedPassword, id];
         } else {
             // Update tanpa mengubah password
             console.log('[ADMIN] Updating user WITHOUT changing password');
-            query = 'UPDATE users SET npm = $1, username = $2, role = $3, fakultas = $4, prodi = $5, angkatan = $6 WHERE id = $7 RETURNING *';
+            query = 'UPDATE users SET npm = $1, username = $2, role = $3, fakultas = $4, prodi = $5, angkatan = $6 WHERE id = $7 RETURNING id, npm, username, role, fakultas, prodi, angkatan';
             params = [npm, username, role, fakultas || null, prodi || null, angkatan || null, id];
         }
         
         console.log('[ADMIN] Executing query:', query);
-        console.log('[ADMIN] Query params:', params);
+        console.log('[ADMIN] Query params (password masked):', [npm, username, role, fakultas || null, prodi || null, angkatan || null, password ? '[PASSWORD HASH]' : null, id].filter(p => p !== null));
         
         const result = await pool.query(query, params);
+        
+        if (result.rows.length === 0) {
+            console.log('[ADMIN] No user found with ID:', id);
+            return res.status(404).json({ message: 'User tidak ditemukan' });
+        }
         
         console.log('[ADMIN] Update successful, returning user:', result.rows[0]);
         res.json({ success: true, user: result.rows[0] });
     } catch (error) {
         console.error('[ADMIN] Error updating user:', error);
-        res.status(500).json({ message: 'Gagal update user' });
+        res.status(500).json({ message: 'Gagal update user: ' + error.message });
     }
 });
 
@@ -134,6 +143,33 @@ router.delete('/users/:id', async (req, res) => {
     } catch (error) {
         console.error('[ADMIN] Error deleting user:', error);
         res.status(500).json({ message: 'Gagal menghapus user' });
+    }
+});
+
+// DEBUG endpoint untuk test password
+router.post('/test-password', async (req, res) => {
+    const { userId, testPassword } = req.body;
+    const pool = req.app.get('dbPool');
+    
+    try {
+        const user = await pool.query('SELECT id, npm, password FROM users WHERE id = $1', [userId]);
+        if (user.rows.length === 0) {
+            return res.json({ success: false, message: 'User tidak ditemukan' });
+        }
+        
+        const bcrypt = require('bcrypt');
+        const isMatch = await bcrypt.compare(testPassword, user.rows[0].password);
+        
+        res.json({ 
+            success: true, 
+            userId: user.rows[0].id,
+            npm: user.rows[0].npm,
+            passwordMatch: isMatch,
+            storedPasswordHash: user.rows[0].password
+        });
+    } catch (error) {
+        console.error('[ADMIN] Error testing password:', error);
+        res.status(500).json({ message: 'Error testing password' });
     }
 });
 

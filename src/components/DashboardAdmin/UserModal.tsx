@@ -86,12 +86,29 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, userToEdit, onSa
             return;
         }
 
+        // Prepare data to send - always include password field
+        const dataToSend = {
+            npm: formData.npm,
+            username: formData.username,
+            role: formData.role || 'user',
+            fakultas: formData.fakultas,
+            prodi: formData.prodi,
+            angkatan: formData.angkatan,
+            password: formData.password || '' // Always include password field, empty string if not provided
+        };
+
         // Debug: Log password field specifically
-        console.log('[USER_MODAL] Password field:', { password: formData.password, hasPassword: !!formData.password, length: formData.password?.length });
+        console.log('[USER_MODAL] Data being sent:', dataToSend);
+        console.log('[USER_MODAL] Password details:', { 
+            hasPassword: !!formData.password, 
+            length: formData.password?.length,
+            isEmpty: formData.password === '',
+            isUndefined: formData.password === undefined
+        });
 
         try {
             // userId adalah undefined untuk POST (Add), atau ID untuk PUT (Edit)
-            await onSave(userToEdit?.id, formData);
+            await onSave(userToEdit?.id, dataToSend);
         } catch (e: any) {
             // Tangkap error dari handleSaveUser di AdminDashboard.tsx
             setLocalError(e.message || 'Gagal menyimpan data.'); 
