@@ -178,6 +178,15 @@ const LoansPage: React.FC = () => {
 				loans.map((loan: Loan & { lampiran?: string; attachment_url?: string }) => {
 					// Cek apakah buku digital (harus return boolean)
 					const isDigitalBook = !!(loan.lampiran && loan.lampiran !== 'Tidak Ada' && loan.attachment_url);
+					console.log('DEBUG: Digital Book Check', {
+						id: loan.id,
+						lampiran: loan.lampiran,
+						attachment_url: loan.attachment_url,
+						condition1: !!loan.lampiran,
+						condition2: loan.lampiran !== 'Tidak Ada',
+						condition3: !!loan.attachment_url,
+						isDigitalBook
+					});
 					
 					// DEBUG: Log status untuk debugging
 					console.log('DEBUG Loan:', {
@@ -186,7 +195,12 @@ const LoansPage: React.FC = () => {
 						status: loan.status,
 						isDigitalBook,
 						isQRReady: isQRReady(loan.status),
-						loanDate: loan.loanDate
+						loanDate: loan.loanDate,
+						lampiran: loan.lampiran,
+						attachment_url: loan.attachment_url,
+						qrExpired,
+						timeLeft,
+						onShowQr: !!onShowQr
 					});
 					
 					// Cek QR expiry untuk auto-cancel
@@ -272,15 +286,25 @@ const LoansPage: React.FC = () => {
 								{/* Buttons untuk buku fisik */}
 								{!isDigitalBook && (
 									<>
+										{console.log('DEBUG: Inside physical book buttons block for loan', loan.id)}
 										{/* Button Tunjukkan QR - untuk status pending (Disetujui) dan belum expired */}
-										{onShowQr && isQRReady(loan.status) && !qrExpired && (
-											<button 
-												className="loan-action-btn" 
-												style={{background:'#2196f3'}} 
-												onClick={() => onShowQr(loan)}
-											>
-												🔍 Tunjukkan Kode Pinjam
-											</button>
+										{onShowQr && isQRReady(loan.status) && !qrExpired ? (
+											<>
+												{console.log('DEBUG: QR button should render for loan', loan.id)}
+												<button 
+													className="loan-action-btn" 
+													style={{background:'#2196f3'}} 
+													onClick={() => onShowQr(loan)}
+												>
+													🔍 Tunjukkan Kode Pinjam
+												</button>
+											</>
+										) : (
+											console.log('DEBUG: QR button NOT rendered for loan', loan.id, {
+												onShowQr: !!onShowQr,
+												isQRReady: isQRReady(loan.status),
+												qrExpired
+											})
 										)}
 										
 										{/* Button Upload Bukti - untuk status dipinjam (Sedang Dipinjam) */}
@@ -295,14 +319,22 @@ const LoansPage: React.FC = () => {
 										)}
 										
 										{/* Button Cancel - untuk status pending (Disetujui) */}
-										{isQRReady(loan.status) && (
-											<button
-												className="loan-action-btn"
-												style={{background:'#e74c3c'}}
-												onClick={() => setCancelModalLoan(loan)}
-											>
-												❌ Batalkan Peminjaman
-											</button>
+										{isQRReady(loan.status) ? (
+											<>
+												{console.log('DEBUG: Cancel button should render for loan', loan.id)}
+												<button
+													className="loan-action-btn"
+													style={{background:'#e74c3c'}}
+													onClick={() => setCancelModalLoan(loan)}
+												>
+													❌ Batalkan Peminjaman
+												</button>
+											</>
+										) : (
+											console.log('DEBUG: Cancel button NOT rendered for loan', loan.id, {
+												isQRReady: isQRReady(loan.status),
+												status: loan.status
+											})
 										)}
 										{/* Modal Konfirmasi Batalkan Peminjaman */}
 										{cancelModalLoan && (
