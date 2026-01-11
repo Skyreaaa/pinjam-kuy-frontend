@@ -121,18 +121,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialView }) => {
         setShowDeleteUser(user);
     };
     const handleSaveUser = async (userId: number | undefined, userData: any) => {
+        console.log('[FRONTEND] handleSaveUser called with:', { userId, userData });
+        
         setUserLoading(true);
         setUserError(null);
         try {
             if (userId) {
+                console.log('[FRONTEND] Updating user with ID:', userId, 'Data:', userData);
                 await require('../../services/api').adminApi.updateUser(userId, userData);
             } else {
+                console.log('[FRONTEND] Creating new user with data:', userData);
                 await require('../../services/api').adminApi.createUser(userData);
             }
             setShowUserModal(false);
             setEditUser(null);
             fetchUsers();
         } catch (e: any) {
+            console.error('[FRONTEND] Error saving user:', e);
             setUserError(e.message || 'Gagal simpan user');
         } finally {
             setUserLoading(false);

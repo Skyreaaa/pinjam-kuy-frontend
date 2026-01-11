@@ -92,22 +92,32 @@ router.put('/users/:id', async (req, res) => {
     const pool = req.app.get('dbPool');
     const { id } = req.params;
     const { npm, username, role, fakultas, prodi, angkatan, password } = req.body;
+    
+    console.log('[ADMIN] PUT /users/:id - Request data:', { id, npm, username, role, fakultas, prodi, angkatan, passwordProvided: !!password });
+    
     try {
         let query, params;
         
         if (password && password.trim() !== '') {
             // Update dengan password baru
+            console.log('[ADMIN] Updating user WITH new password');
             const bcrypt = require('bcrypt');
             const hashedPassword = await bcrypt.hash(password, 10);
             query = 'UPDATE users SET npm = $1, username = $2, role = $3, fakultas = $4, prodi = $5, angkatan = $6, password = $7 WHERE id = $8 RETURNING *';
             params = [npm, username, role, fakultas || null, prodi || null, angkatan || null, hashedPassword, id];
         } else {
             // Update tanpa mengubah password
+            console.log('[ADMIN] Updating user WITHOUT changing password');
             query = 'UPDATE users SET npm = $1, username = $2, role = $3, fakultas = $4, prodi = $5, angkatan = $6 WHERE id = $7 RETURNING *';
             params = [npm, username, role, fakultas || null, prodi || null, angkatan || null, id];
         }
         
+        console.log('[ADMIN] Executing query:', query);
+        console.log('[ADMIN] Query params:', params);
+        
         const result = await pool.query(query, params);
+        
+        console.log('[ADMIN] Update successful, returning user:', result.rows[0]);
         res.json({ success: true, user: result.rows[0] });
     } catch (error) {
         console.error('[ADMIN] Error updating user:', error);

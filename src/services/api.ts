@@ -196,7 +196,10 @@ export const bookApi = {
 export const adminApi = {
   users: () => adminApiAxios.get('/admin/users').then(r => r.data),
   createUser: (data: any) => adminApiAxios.post('/admin/users', data).then(r => r.data),
-  updateUser: (id: number, data: any) => adminApiAxios.put(`/admin/users/${id}`, data).then(r => r.data),
+  updateUser: (id: number, data: any) => {
+    console.log('[API] adminApi.updateUser called with:', { id, data });
+    return adminApiAxios.put(`/admin/users/${id}`, data).then(r => r.data);
+  },
   deleteUser: (id: number) => adminApiAxios.delete(`/admin/users/${id}`).then(r => r.data),
   resetPenalty: (id: number) => adminApiAxios.post(`/admin/penalty/reset/${id}`, {}).then(r => r.data),
 

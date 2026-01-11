@@ -78,11 +78,16 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, userToEdit, onSa
         e.preventDefault();
         setLocalError(null);
 
+        console.log('[USER_MODAL] Form submission - isEditMode:', isEditMode, 'formData:', formData);
+
         // Validasi wajib isi
         if (!formData.username || !formData.npm || !formData.fakultas || !formData.prodi || !formData.angkatan || (!isEditMode && !formData.password)) {
             setLocalError('Semua field wajib diisi (kecuali Password saat Edit).');
             return;
         }
+
+        // Debug: Log password field specifically
+        console.log('[USER_MODAL] Password field:', { password: formData.password, hasPassword: !!formData.password, length: formData.password?.length });
 
         try {
             // userId adalah undefined untuk POST (Add), atau ID untuk PUT (Edit)
