@@ -5,13 +5,14 @@ import EmptyState from '../common/EmptyState';
 interface AdminUsersPageProps {
     onEditUser: (user: any) => void;
     onDeleteUser: (user: any) => void;
+    onResetFines: (userId: number, username: string) => void;
     users: any[];
     loading: boolean;
     error: string | null;
 }
 
 
-const AdminUsersPage: React.FC<AdminUsersPageProps> = ({ onEditUser, onDeleteUser, users, loading, error }) => {
+const AdminUsersPage: React.FC<AdminUsersPageProps> = ({ onEditUser, onDeleteUser, onResetFines, users, loading, error }) => {
 
     return (
         <div>
@@ -42,6 +43,7 @@ const AdminUsersPage: React.FC<AdminUsersPageProps> = ({ onEditUser, onDeleteUse
                                 <td>{u.angkatan}</td>
                                 <td>
                                     <button className="btn btn-sm btn-edit" onClick={() => onEditUser(u)}>Edit</button>
+                                    <button className="btn btn-sm btn-warning" onClick={() => onResetFines(u.id, u.username)} style={{marginLeft: 8}}>Reset Denda</button>
                                     <button className="btn btn-sm btn-danger" onClick={() => onDeleteUser(u)} style={{marginLeft: 8}}>Hapus</button>
                                 </td>
                             </tr>

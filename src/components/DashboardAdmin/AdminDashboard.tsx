@@ -124,6 +124,21 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialView }) => {
     const handleDeleteUser = (user: any) => {
         setShowDeleteUser(user);
     };
+    const handleResetFines = async (userId: number, username: string) => {
+        if (!window.confirm(`Yakin ingin reset denda untuk user ${username}?`)) return;
+        setUserLoading(true);
+        setUserError(null);
+        try {
+            await require('../../services/api').adminApi.post(`/reset-fines/${userId}`);
+            alert('Denda berhasil direset!');
+            fetchUsers();
+        } catch (e: any) {
+            setUserError(e.response?.data?.message || e.message || 'Gagal reset denda');
+            alert('Gagal reset denda: ' + (e.response?.data?.message || e.message));
+        } finally {
+            setUserLoading(false);
+        }
+    };
     const handleSaveUser = async (userId: number | undefined, userData: any) => {
         console.log('[FRONTEND] handleSaveUser called with:', { userId, userData });
         
@@ -276,7 +291,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialView }) => {
                         <button className="btn btn-primary" onClick={handleAddUser}>+ Tambah User</button>
                        
                     </div>
-                    <AdminUsersPage onEditUser={handleEditUser} onDeleteUser={handleDeleteUser} users={users} loading={userLoading} error={userError} />
+                    <AdminUsersPage onEditUser={handleEditUser} onDeleteUser={handleDeleteUser} onResetFines={handleResetFines} users={users} loading={userLoading} error={userError} />
                 </div>
             );
             break;
