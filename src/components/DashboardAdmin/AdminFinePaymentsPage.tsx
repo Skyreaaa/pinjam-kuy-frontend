@@ -23,7 +23,7 @@ interface AdminFinePaymentsPageProps {
 	onVerify: (id: number, action: 'approve' | 'reject', proofFile?: File, notes?: string) => void;
 }
 
-// Modal Detail Payment
+// Modal Verifikasi Pembayaran Denda
 const PaymentDetailModal: React.FC<{
 	payment: FinePayment;
 	onClose: () => void;
@@ -57,6 +57,17 @@ const PaymentDetailModal: React.FC<{
 		if (method === 'cash') return 'Bayar di Tempat';
 		return method;
 	};
+
+	// Get full proof URL
+	const getProofUrl = (url?: string) => {
+		if (!url) return null;
+		if (url.startsWith('http')) return url;
+		// Prepend backend URL
+		const backendUrl = process.env.REACT_APP_API_URL || 'https://pinjam-kuy-backend-production.up.railway.app';
+		return `${backendUrl}${url}`;
+	};
+
+	const proofImageUrl = getProofUrl(payment.proof_url);
 
 	return (
 		<div style={{
@@ -98,62 +109,60 @@ const PaymentDetailModal: React.FC<{
 					<FaTimes />
 				</button>
 
-				<h2 style={{marginBottom: 24, color: '#333'}}>Detail Pembayaran</h2>
+				<h2 style={{marginBottom: 24, color: '#333'}}>Verifikasi Pembayaran Denda</h2>
 				
-				<div style={{marginBottom: 24}}>
-					<div style={{display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f0f0f0'}}>
-						<span style={{color: '#666', fontWeight: 600}}>User:</span>
+				{/* Info Ringkas */}
+				<div style={{marginBottom: 24, background: '#f9f9f9', padding: 16, borderRadius: 8}}>
+					<div style={{display: 'flex', justifyContent: 'space-between', marginBottom: 8}}>
+						<span style={{color: '#666'}}>User:</span>
 						<span style={{fontWeight: 700}}>{payment.username} ({payment.npm})</span>
 					</div>
-					<div style={{display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f0f0f0'}}>
-						<span style={{color: '#666', fontWeight: 600}}>Metode:</span>
+					<div style={{display: 'flex', justifyContent: 'space-between', marginBottom: 8}}>
+						<span style={{color: '#666'}}>Metode:</span>
 						<span style={{fontWeight: 700}}>{getMethodLabel(payment.method)}</span>
 					</div>
-					<div style={{display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f0f0f0'}}>
-						<span style={{color: '#666', fontWeight: 600}}>Total Denda:</span>
+					<div style={{display: 'flex', justifyContent: 'space-between'}}>
+						<span style={{color: '#666'}}>Total:</span>
 						<span style={{fontWeight: 700, color: '#ff4d4f', fontSize: 18}}>
 							{payment.amount_total.toLocaleString('id-ID', { style: 'currency', currency: 'IDR' })}
 						</span>
 					</div>
-					{payment.account_name && (
-						<div style={{display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f0f0f0'}}>
-							<span style={{color: '#666', fontWeight: 600}}>Atas Nama:</span>
-							<span style={{fontWeight: 700}}>{payment.account_name}</span>
-						</div>
-					)}
-					{payment.bank_name && (
-						<div style={{display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f0f0f0'}}>
-							<span style={{color: '#666', fontWeight: 600}}>Bank:</span>
-							<span style={{fontWeight: 700}}>{payment.bank_name}</span>
-						</div>
-					)}
-					<div style={{display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f0f0f0'}}>
-						<span style={{color: '#666', fontWeight: 600}}>Tanggal Pengajuan:</span>
-						<span style={{fontWeight: 700}}>{new Date(payment.created_at).toLocaleString('id-ID')}</span>
-					</div>
 				</div>
 
-				{payment.proof_url && payment.method !== 'cash' && (
+				{/* Bukti Pembayaran dari User */}
+				{proofImageUrl && payment.method !== 'cash' && (
 					<div style={{marginBottom: 24}}>
-						<h3 style={{marginBottom: 12, color: '#666'}}>Bukti Pembayaran:</h3>
-						<img 
-							src={payment.proof_url} 
-							alt="Payment Proof" 
-							style={{
-								width: '100%',
-								maxHeight: 400,
-								objectFit: 'contain',
-								borderRadius: 8,
-								border: '2px solid #f0f0f0'
-							}}
-						/>
+						<h3 style={{marginBottom: 12, color: '#333', fontSize: 16}}>📷 Bukti Pembayaran dari User:</h3>
+						<div style={{
+							background: '#f5f5f5',
+							padding: 16,
+							borderRadius: 8,
+							textAlign: 'center'
+						}}>
+							<img 
+								src={proofImageUrl} 
+								alt="Bukti Pembayaran" 
+								style={{
+									maxWidth: '100%',
+									maxHeight: 400,
+									objectFit: 'contain',
+									borderRadius: 8,
+									border: '2px solid #e8e8e8'
+								}}
+								onError={(e) => {
+									console.log('Image load error:', proofImageUrl);
+									(e.target as HTMLImageElement).style.display = 'none';
+								}}
+							/>
+						</div>
 					</div>
 				)}
 
+				{/* Pembayaran Tunai - Admin perlu upload bukti */}
 				{payment.method === 'cash' && !showCashUpload && (
 					<div style={{marginBottom: 24, padding: 16, background: '#fff7e6', borderRadius: 8, border: '1px solid #ffa940'}}>
 						<p style={{color: '#d46b08', margin: 0}}>
-							<strong>📌 Pembayaran Tunai</strong> - Mohon upload bukti pembayaran setelah user membayar di tempat.
+							<strong>💵 Pembayaran Tunai</strong> - Upload bukti setelah user membayar.
 						</p>
 					</div>
 				)}
