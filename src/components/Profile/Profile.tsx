@@ -1,6 +1,6 @@
 // File: components/Profile/Profile.tsx 
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import { userApi } from '../../services/api';
 import Cropper from 'react-easy-crop';
 import { Area } from 'react-easy-crop/types';
 import QRCodeDisplay from '../common/QRCodeDisplay';
@@ -273,12 +273,13 @@ const Profile: React.FC<ProfileProps> = ({
         const fd = new FormData();
         fd.append('profile_photo', croppedFile);
         const token = sessionStorage.getItem('token');
-        const resp = await axios.post(
-          `${process.env.REACT_APP_API_URL || 'http://localhost:5000/api'}/profile/upload-photo`,
+        const resp = await userApi.post(
+          '/profile/upload-photo',
           fd,
           {
             headers: {
               'Authorization': `Bearer ${token}`,
+              'Content-Type': 'multipart/form-data'
             },
             onUploadProgress: (progressEvent) => {
               if (progressEvent.total) {
