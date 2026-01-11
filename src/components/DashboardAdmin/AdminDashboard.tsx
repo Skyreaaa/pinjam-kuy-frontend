@@ -92,18 +92,18 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ initialView }) => {
         setFineLoading(true);
         setFineError(null);
         try {
-            const formData = new FormData();
-            formData.append('action', action);
-            if (notes) formData.append('notes', notes);
-            if (proofFile) formData.append('proof', proofFile);
+            // Backend expects: { status: 'approved' | 'rejected', adminNotes: 'optional' }
+            const status = action === 'approve' ? 'approved' : 'rejected';
             
-            await require('../../services/api').adminApi.post(`/fine-payments/${id}/verify`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
+            await require('../../services/api').adminApi.post(`/fine-payments/${id}/verify`, {
+                status,
+                adminNotes: notes || ''
             });
             
             fetchFinePayments();
         } catch (e: any) {
-            setFineError(e.message || 'Gagal verifikasi pembayaran');
+            console.error('[ADMIN] Error verifying payment:', e);
+            setFineError(e.response?.data?.message || e.message || 'Gagal verifikasi pembayaran');
         } finally {
             setFineLoading(false);
         }

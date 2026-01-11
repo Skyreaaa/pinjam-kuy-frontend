@@ -1343,38 +1343,49 @@ exports.ackRejectionNotifications = async (req, res) => {
 exports.submitFinePayment = async (req, res) => {
     const pool = getDBPool(req);
     const userId = req.user.id;
-    const { method, loanIds, totalAmount, accountName, bankName } = req.body;
+    let { method, loanIds, totalAmount, accountName, bankName } = req.body;
+    
+    // Parse loanIds if it's a string (from FormData)
+    if (typeof loanIds === 'string') {
+        try {
+            loanIds = JSON.parse(loanIds);
+        } catch (e) {
+            return res.status(400).json({ message: 'Format loanIds tidak valid.' });
+        }
+    }
+    
+    // Parse totalAmount if it's a string
+    if (typeof totalAmount === 'string') {
+        totalAmount = parseFloat(totalAmount);
+    }
     
     if (!method || !loanIds || !Array.isArray(loanIds) || loanIds.length === 0 || !totalAmount) {
-        return res.status(400).json({ message: 'Data pembayaran tidak lengkap.' });
+        return res.status(400).json({ 
+            message: 'Data pembayaran tidak lengkap.',
+            debug: { method, loanIds: typeof loanIds, loanIdsValue: loanIds, totalAmount: typeof totalAmount }
+        });
     }
     
     // PostgreSQL uses pool directly
     try {
-        // No getConnection needed
-        // No transactions for now
-        
         // Get user info
-        const [users] = await pool.query('SELECT username, npm FROM users WHERE id =: LIMIT 1', [userId]);
-        if (!users.length) {
-            // No rollback
+        const userResult = await pool.query('SELECT username, npm FROM users WHERE id = $1 LIMIT 1', [userId]);
+        if (userResult.rows.length === 0) {
             return res.status(404).json({ message: 'User tidak ditemukan.' });
         }
         
-        const user = users[0];
+        const user = userResult.rows[0];
         let proofUrl = null;
         
         // Handle file upload untuk bank_transfer
         if (method === 'bank_transfer') {
             if (!accountName) {
-                // No rollback
                 return res.status(400).json({ message: 'Nama rekening wajib diisi untuk transfer bank.' });
             }
             
             if (req.file) {
                 proofUrl = `/uploads/fine-proofs/${req.file.filename}`;
             } else {
-                // No rollback
                 return res.status(400).json({ message: 'Bukti transfer wajib diupload.' });
             }
         }
@@ -1382,11 +1393,11 @@ exports.submitFinePayment = async (req, res) => {
         // Insert fine payment record
         const result = await pool.query(
             `INSERT INTO fine_payments (user_id, username, npm, method, amount_total, proof_url, loan_ids, status, account_name, bank_name, created_at) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, CURRENT_TIMESTAMP)`,
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8, $9, CURRENT_TIMESTAMP) RETURNING id`,
             [userId, user.username, user.npm, method, totalAmount, proofUrl, JSON.stringify(loanIds), accountName || null, bankName || null]
         );
         
-        // No commit
+        const paymentId = result.rows[0]?.id;
         
         // Send notification to user
         const message = method === 'cash' 
@@ -1402,7 +1413,7 @@ exports.submitFinePayment = async (req, res) => {
                 io.to(`user_${userId}`).emit('notification', {
                     message,
                     type: 'info',
-                    paymentId: result.rows[0]?.id
+                    paymentId
                 });
             }
         } catch (err) {
@@ -1415,7 +1426,7 @@ exports.submitFinePayment = async (req, res) => {
                 title: 'Pembayaran Denda',
                 message,
                 tag: 'fine-payment',
-                data: { paymentId: result.rows[0]?.id, type: 'payment' }
+                data: { paymentId, type: 'payment' }
             });
         } catch (err) {
             console.warn('[PUSH] Gagal kirim push:', err.message);
@@ -1424,14 +1435,11 @@ exports.submitFinePayment = async (req, res) => {
         res.json({ 
             success: true, 
             message: 'Pembayaran berhasil diajukan.', 
-            paymentId: result.rows[0]?.id 
+            paymentId 
         });
     } catch (e) {
-        // PostgreSQL - No explicit rollback needed
-        console.error('❌ Error submitting fine payment:', e);
-        res.status(500).json({ message: 'Gagal mengajukan pembayaran.' });
-    } finally {
-        // PostgreSQL - No connection release needed
+        console.error('❌ [submitFinePayment] Error:', e);
+        res.status(500).json({ message: 'Gagal mengajukan pembayaran.', error: e.message });
     }
 };
 
@@ -1568,5 +1576,114 @@ exports.getHistory = async (req, res) => {
     } catch (error) {
         console.error('❌ [getHistory] Error:', error);
         res.status(500).json({ success: false, message: 'Gagal memuat riwayat: ' + error.message });
+    }
+};
+
+// Verify fine payment (Admin only)
+exports.verifyFinePayment = async (req, res) => {
+    const pool = getDBPool(req);
+    const paymentId = parseInt(req.params.id);
+    const { status, adminNotes } = req.body; // status: 'approved' or 'rejected'
+    const adminId = req.user.id;
+    const adminUsername = req.user.username;
+    
+    if (!status || !['approved', 'rejected'].includes(status)) {
+        return res.status(400).json({ message: 'Status harus "approved" atau "rejected".' });
+    }
+    
+    try {
+        // Get payment details
+        const paymentResult = await pool.query(
+            'SELECT * FROM fine_payments WHERE id = $1',
+            [paymentId]
+        );
+        
+        if (paymentResult.rows.length === 0) {
+            return res.status(404).json({ message: 'Pembayaran tidak ditemukan.' });
+        }
+        
+        const payment = paymentResult.rows[0];
+        
+        if (payment.status !== 'pending') {
+            return res.status(400).json({ message: 'Pembayaran sudah diverifikasi sebelumnya.' });
+        }
+        
+        // Update payment status
+        await pool.query(
+            `UPDATE fine_payments 
+             SET status = $1, admin_notes = $2, verified_by = $3, verified_at = CURRENT_TIMESTAMP
+             WHERE id = $4`,
+            [status, adminNotes || null, adminUsername, paymentId]
+        );
+        
+        // If approved, update finePaid in loans table
+        if (status === 'approved') {
+            const loanIds = JSON.parse(payment.loan_ids);
+            
+            for (const loanId of loanIds) {
+                await pool.query(
+                    `UPDATE loans SET finepaid = true WHERE id = $1`,
+                    [loanId]
+                );
+            }
+            
+            console.log(`✅ [verifyFinePayment] Approved payment ${paymentId}, updated ${loanIds.length} loans`);
+        }
+        
+        // Send notification to user
+        const pushController = require('./pushController');
+        const message = status === 'approved'
+            ? `Pembayaran denda Anda sebesar Rp ${payment.amount_total.toLocaleString('id-ID')} telah disetujui.`
+            : `Pembayaran denda Anda ditolak. ${adminNotes || 'Silakan hubungi admin untuk informasi lebih lanjut.'}`;
+        
+        try {
+            const io = req.app.get('io');
+            if (io) {
+                io.to(`user_${payment.user_id}`).emit('notification', {
+                    message,
+                    type: status === 'approved' ? 'success' : 'warning',
+                    paymentId
+                });
+            }
+        } catch (err) {
+            console.warn('[SOCKET.IO] Gagal kirim notifikasi:', err.message);
+        }
+        
+        try {
+            await pushController.sendPushNotification(payment.user_id, 'user', {
+                title: 'Verifikasi Pembayaran Denda',
+                message,
+                tag: 'fine-verification',
+                data: { paymentId, status }
+            });
+        } catch (err) {
+            console.warn('[PUSH] Gagal kirim push:', err.message);
+        }
+        
+        res.json({ 
+            success: true, 
+            message: `Pembayaran berhasil ${status === 'approved' ? 'disetujui' : 'ditolak'}.` 
+        });
+    } catch (e) {
+        console.error('❌ [verifyFinePayment] Error:', e);
+        res.status(500).json({ message: 'Gagal memverifikasi pembayaran.', error: e.message });
+    }
+};
+
+// Get all fine payments for admin
+exports.getAllFinePayments = async (req, res) => {
+    const pool = getDBPool(req);
+    try {
+        const result = await pool.query(
+            `SELECT fp.*, u.username, u.npm 
+             FROM fine_payments fp 
+             JOIN users u ON fp.user_id = u.id 
+             ORDER BY fp.created_at DESC`
+        );
+        
+        res.json(result.rows);
+    } catch (e) {
+        console.error('❌ [getAllFinePayments] Error:', e);
+        res.status(500).json({ message: 'Gagal memuat daftar pembayaran denda.', error: e.message });
     }
 };
