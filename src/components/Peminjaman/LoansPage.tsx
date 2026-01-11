@@ -179,36 +179,11 @@ const LoansPage: React.FC = () => {
 				loans.map((loan: Loan & { lampiran?: string; attachment_url?: string }) => {
 					// Cek apakah buku digital (harus return boolean)
 					const isDigitalBook = !!(loan.lampiran && loan.lampiran !== 'Tidak Ada' && loan.attachment_url);
-					console.log('DEBUG: Digital Book Check', {
-						id: loan.id,
-						lampiran: loan.lampiran,
-						attachment_url: loan.attachment_url,
-						condition1: !!loan.lampiran,
-						condition2: loan.lampiran !== 'Tidak Ada',
-						condition3: !!loan.attachment_url,
-						isDigitalBook
-					});
-					
-					// DEBUG: Log status untuk debugging
-					console.log('DEBUG Loan:', {
-						id: loan.id,
-						title: loan.bookTitle,
-						status: originalStatus, // Use original status
-						displayStatus,
-						isDigitalBook,
-						isQRReady: isQRReady(originalStatus), // Use original status
-						loanDate: loan.loanDate,
-						lampiran: loan.lampiran,
-						attachment_url: loan.attachment_url,
-						qrExpired,
-						timeLeft,
-						onShowQr: !!onShowQr
-					});
 					
 					// Cek QR expiry untuk auto-cancel
 					let qrExpired = false;
 					let timeLeft = '';
-					if (!isDigitalBook && isQRReady(originalStatus) && loan.loanDate) {
+					if (!isDigitalBook && isQRReady(loan.status) && loan.loanDate) {
 						const loanTime = new Date(loan.loanDate).getTime();
 						const expiry = loanTime + 24 * 60 * 60 * 1000;
 						const msLeft = expiry - now;
