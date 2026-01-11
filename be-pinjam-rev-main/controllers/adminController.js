@@ -19,17 +19,13 @@ exports.getStats = async (req, res) => {
         const result4 = await pool.query("SELECT COUNT(*) as totalReturns FROM loans WHERE status='Dikembalikan'");
         const totalReturns = result4.rows[0]?.totalreturns || 0;
         
-        // Total Fines (sum of all fines from loans + fine_payments table)
+        // Total Fines (sum of all fines from loans)
         const result5 = await pool.query(`
-            SELECT 
-                COALESCE(SUM(l.fineAmount), 0) as loanFines,
-                COALESCE(SUM(fp.amount), 0) as paymentFines
-            FROM loans l
-            LEFT JOIN fine_payments fp ON fp.status = 'approved'
+            SELECT COALESCE(SUM(fineAmount), 0) as totalFines
+            FROM loans
+            WHERE fineAmount > 0
         `);
-        const loanFines = parseFloat(result5.rows[0]?.loanfines) || 0;
-        const paymentFines = parseFloat(result5.rows[0]?.paymentfines) || 0;
-        const totalFines = loanFines; // Total denda yang dihasilkan dari loans
+        const totalFines = parseFloat(result5.rows[0]?.totalfines) || 0;
         
         res.json({
             totalUsers,

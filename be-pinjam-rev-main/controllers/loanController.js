@@ -1032,8 +1032,8 @@ exports.ackApprovalNotifications = async (req, res) => {
         return res.status(400).json({ success:false, message:'IDs diperlukan.' });
     }
     try {
-        const placeholders = ids.map(()=>'?').join(',');
-        await pool.query(`UPDATE loans SET userNotified = 1 WHERE user_id =: AND id IN (${placeholders})`, [userId, ...ids]);
+        const placeholders = ids.map((_, i) => `$${i + 2}`).join(',');
+        await pool.query(`UPDATE loans SET userNotified = TRUE WHERE user_id = $1 AND id IN (${placeholders})`, [userId, ...ids]);
         res.json({ success:true });
     } catch (e){
         console.error('❌ Error ackApprovalNotifications:', e);
@@ -1330,8 +1330,8 @@ exports.ackRejectionNotifications = async (req, res) => {
         return res.status(400).json({ success:false, message:'IDs diperlukan.' });
     }
     try {
-        const placeholders = ids.map(()=>'?').join(',');
-        await pool.query(`UPDATE loans SET rejectionNotified = 1 WHERE user_id =: AND id IN (${placeholders})`, [userId, ...ids]);
+        const placeholders = ids.map((_, i) => `$${i + 2}`).join(',');
+        await pool.query(`UPDATE loans SET rejectionNotified = TRUE WHERE user_id = $1 AND id IN (${placeholders})`, [userId, ...ids]);
         res.json({ success:true });
     } catch (e){
         console.error('❌ Error ackRejectionNotifications:', e);
@@ -1470,10 +1470,14 @@ exports.getUserActivityHistory = async (req, res) => {
     const pool = getDBPool(req);
     const userId = req.user.id;
     
+    console.log('[ACTIVITY_HISTORY] User ID:', userId, 'Username:', req.user.username);
+    
     try {
         // Calculate 2 months ago from now
         const twoMonthsAgo = new Date();
         twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
+        
+        console.log('[ACTIVITY_HISTORY] Fetching activities since:', twoMonthsAgo);
         
         // Get all loans from last 2 months with book info
         const loansResult = await pool.query(
@@ -1499,6 +1503,8 @@ exports.getUserActivityHistory = async (req, res) => {
             [userId, twoMonthsAgo]
         );
         
+        console.log('[ACTIVITY_HISTORY] Found loans:', loansResult.rows.length);
+        
         // Get fine payments from last 2 months
         const paymentsResult = await pool.query(
             `SELECT 
@@ -1515,6 +1521,8 @@ exports.getUserActivityHistory = async (req, res) => {
              ORDER BY created_at DESC`,
             [userId, twoMonthsAgo]
         );
+        
+        console.log('[ACTIVITY_HISTORY] Found payments:', paymentsResult.rows.length);
         
         // Combine and format activity data
         const activities = [];

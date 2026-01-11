@@ -46,16 +46,17 @@ const ActivityHistory: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const token = sessionStorage.getItem('token');
-      const response = await userApi.get<ActivityResponse>('/loans/activity-history', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      console.log('[ActivityHistory] Fetching activity history...');
+      const response = await userApi.get<ActivityResponse>('/loans/activity-history');
+      
+      console.log('[ActivityHistory] Response:', response.data);
       
       if (response.data.success) {
         setActivities(response.data.activities);
+        console.log('[ActivityHistory] Loaded activities:', response.data.activities.length);
       }
     } catch (err: any) {
-      console.error('Failed to fetch activity history:', err);
+      console.error('[ActivityHistory] Failed to fetch:', err);
       setError(err.response?.data?.message || 'Gagal memuat riwayat aktivitas');
     } finally {
       setLoading(false);
