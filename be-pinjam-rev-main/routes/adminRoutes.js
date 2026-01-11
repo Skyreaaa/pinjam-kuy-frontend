@@ -19,6 +19,7 @@ router.get('/monthly-activity', adminController.getMonthlyActivity);
 router.get('/active-loans', adminController.getActiveLoans);
 router.get('/outstanding-fines', adminController.getOutstandingFines);
 router.get('/notification-stats', adminController.getNotificationStats);
+router.get('/history-all', adminController.getHistoryAll);
 
 // === BROADCAST NOTIFIKASI KE SEMUA USER ===
 const UserNotification = require('../models/user_notifications');

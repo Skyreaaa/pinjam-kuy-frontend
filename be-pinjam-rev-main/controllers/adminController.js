@@ -143,3 +143,48 @@ exports.getPendingFinePayments = async (req, res) => {
         res.status(500).json({ message: 'Gagal mengambil data pembayaran denda pending.' });
     }
 };
+// Get all completed loan history (returned or rejected loans)
+exports.getHistoryAll = async (req, res) => {
+    const pool = getDBPool(req);
+    try {
+        const result = await pool.query(`
+            SELECT 
+                l.id,
+                l.loanDate,
+                l.expectedReturnDate,
+                l.actualReturnDate,
+                l.status,
+                l.fineAmount,
+                l.finePaid,
+                l.returnProofUrl,
+                l.returnProofMetadata,
+                l.readyReturnDate,
+                l.approvedAt,
+                l.returnDecision,
+                l.rejectionReason,
+                l.createdAt,
+                b.title,
+                b.kodeBuku,
+                b.author,
+                u.username,
+                u.npm,
+                u.fakultas
+            FROM loans l
+            JOIN books b ON l.book_id = b.id
+            JOIN users u ON l.user_id = u.id
+            WHERE l.status IN ('Dikembalikan', 'Ditolak')
+            ORDER BY l.actualReturnDate DESC NULLS LAST, l.approvedAt DESC NULLS LAST, l.loanDate DESC
+        `);
+        
+        const rows = result.rows.map(row => ({
+            ...row,
+            fineAmountRupiah: row.fineamount ? `Rp ${Number(row.fineamount).toLocaleString('id-ID')}` : 'Rp 0',
+            finePaidRupiah: row.finepaid ? `Rp ${Number(row.finepaid).toLocaleString('id-ID')}` : 'Rp 0'
+        }));
+        
+        res.json(rows);
+    } catch (e) {
+        console.error('[ADMIN][HISTORY_ALL] Error:', e);
+        res.status(500).json({ message: 'Gagal mengambil riwayat aktivitas.' });
+    }
+};
