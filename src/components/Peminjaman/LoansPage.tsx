@@ -179,10 +179,20 @@ const LoansPage: React.FC = () => {
 					// Cek apakah buku digital (harus return boolean)
 					const isDigitalBook = !!(loan.lampiran && loan.lampiran !== 'Tidak Ada' && loan.attachment_url);
 					
+					// DEBUG: Log status untuk debugging
+					console.log('DEBUG Loan:', {
+						id: loan.id,
+						title: loan.bookTitle,
+						status: loan.status,
+						isDigitalBook,
+						isQRReady: isQRReady(loan.status),
+						loanDate: loan.loanDate
+					});
+					
 					// Cek QR expiry untuk auto-cancel
 					let qrExpired = false;
 					let timeLeft = '';
-					if (!isDigitalBook && loan.status === 'Disetujui' && loan.loanDate) {
+					if (!isDigitalBook && isQRReady(loan.status) && loan.loanDate) {
 						const loanTime = new Date(loan.loanDate).getTime();
 						const expiry = loanTime + 24 * 60 * 60 * 1000;
 						const msLeft = expiry - now;
@@ -253,7 +263,7 @@ const LoansPage: React.FC = () => {
 									<button 
 										onClick={() => handleDownload(loan.attachment_url!, `${loan.bookTitle}.${loan.lampiran?.toLowerCase() || 'file'}`)}
 										className="loan-action-btn"
-										style={{background:'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',color:'#fff',fontWeight:600,border:'none',padding:'12px',borderRadius:8,cursor:'pointer',fontSize:'0.95rem'}}
+										style={{background:'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'}}
 									>
 										📥 Download File ({loan.lampiran})
 									</button>
@@ -264,14 +274,22 @@ const LoansPage: React.FC = () => {
 									<>
 										{/* Button Tunjukkan QR - untuk status pending (Disetujui) dan belum expired */}
 										{onShowQr && isQRReady(loan.status) && !qrExpired && (
-											<button className="loan-action-btn" style={{background:'#2196f3',color:'#fff',border:'none',padding:'12px',borderRadius:8,cursor:'pointer',fontSize:'0.95rem',fontWeight:600}} onClick={() => onShowQr(loan)}>
+											<button 
+												className="loan-action-btn" 
+												style={{background:'#2196f3'}} 
+												onClick={() => onShowQr(loan)}
+											>
 												🔍 Tunjukkan Kode Pinjam
 											</button>
 										)}
 										
 										{/* Button Upload Bukti - untuk status dipinjam (Sedang Dipinjam) */}
 										{setUploadModalLoan && canUploadReturnProof(loan.status) && (
-											<button className="loan-action-btn" style={{background:'#4caf50',color:'#fff',border:'none',padding:'12px',borderRadius:8,cursor:'pointer',fontSize:'0.95rem',fontWeight:600}} onClick={() => setUploadModalLoan(loan)}>
+											<button 
+												className="loan-action-btn" 
+												style={{background:'#4caf50'}} 
+												onClick={() => setUploadModalLoan(loan)}
+											>
 												📸 Upload Bukti Pengembalian
 											</button>
 										)}
@@ -280,7 +298,7 @@ const LoansPage: React.FC = () => {
 										{isQRReady(loan.status) && (
 											<button
 												className="loan-action-btn"
-												style={{background:'#e74c3c',color:'#fff',border:'none',padding:'12px',borderRadius:8,cursor:'pointer',fontSize:'0.95rem',fontWeight:600}}
+												style={{background:'#e74c3c'}}
 												onClick={() => setCancelModalLoan(loan)}
 											>
 												❌ Batalkan Peminjaman

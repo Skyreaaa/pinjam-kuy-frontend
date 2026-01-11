@@ -99,7 +99,6 @@ exports.requestLoan = async (req, res) => {
             'SELECT judul, stok, description FROM books WHERE id_buku = $1', 
             [bookId]
         );
-        );
         if (bookResult.rows.length === 0 || bookResult.rows[0].stok <= 0) {
             return res.status(400).json({ message: 'Stok buku tidak tersedia.' });
         }
