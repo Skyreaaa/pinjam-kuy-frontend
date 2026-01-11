@@ -21,6 +21,7 @@ const QRScanModal: React.FC<QRScanModalProps> = ({ isOpen, onClose, onScan, scan
   const html5QrRef = useRef<Html5Qrcode|null>(null);
   const scannerRunningRef = useRef<boolean>(false);
   const [isStopping, setIsStopping] = useState(false);
+  const lastScannedRef = useRef<{code: string; time: number} | null>(null);
   interface ScanResult {
     bookTitle: string;
     borrowerName: string;
@@ -68,6 +69,18 @@ const QRScanModal: React.FC<QRScanModalProps> = ({ isOpen, onClose, onScan, scan
           if (isActive && scannerRunningRef.current) {
             // Jangan stop scanner, biarkan tetap berjalan untuk scan berikutnya
             if (decodedText) {
+              // Cek apakah QR code yang sama baru saja di-scan (dalam 3 detik terakhir)
+              const now = Date.now();
+              if (lastScannedRef.current && 
+                  lastScannedRef.current.code === decodedText && 
+                  now - lastScannedRef.current.time < 3000) {
+                // Skip - QR yang sama baru saja di-scan
+                return;
+              }
+              
+              // Update last scanned
+              lastScannedRef.current = { code: decodedText, time: now };
+              
               setLoadingDetail(true);
               try {
                 // Use adminApiAxios to scan kodePinjam
@@ -185,7 +198,7 @@ const QRScanModal: React.FC<QRScanModalProps> = ({ isOpen, onClose, onScan, scan
                           <div style={{fontSize:13,marginBottom:4}}><b>Peminjam:</b> {scanResult.borrowerName}</div>
                         </div>
                       )}
-                      <button style={{marginTop:18,padding:'10px 28px',borderRadius:6,background:'#e53935',color:'#fff',border:'none',fontWeight:600,cursor:'pointer',fontSize:14}} onClick={()=>{setScanResult(null);onClose();}}>Tutup</button>
+                      <button style={{marginTop:18,padding:'10px 28px',borderRadius:6,background:'#e53935',color:'#fff',border:'none',fontWeight:600,cursor:'pointer',fontSize:14}} onClick={()=>{setScanResult(null);lastScannedRef.current=null;onClose();}}>Tutup</button>
                     </>
                   ) : (
                     <>
@@ -207,7 +220,7 @@ const QRScanModal: React.FC<QRScanModalProps> = ({ isOpen, onClose, onScan, scan
                       <div style={{marginTop:12,padding:12,background:'#fff3cd',borderRadius:6,fontSize:13,color:'#856404'}}>
                         📢 Notifikasi telah dikirim ke peminjam
                       </div>
-                      <button style={{marginTop:18,padding:'10px 28px',borderRadius:6,background:'#27ae60',color:'#fff',border:'none',fontWeight:600,cursor:'pointer',fontSize:14,marginRight:8}} onClick={()=>{setScanResult(null);}}>Scan Lagi</button>
+                      <button style={{marginTop:18,padding:'10px 28px',borderRadius:6,background:'#27ae60',color:'#fff',border:'none',fontWeight:600,cursor:'pointer',fontSize:14,marginRight:8}} onClick={()=>{setScanResult(null);lastScannedRef.current=null;}}>Scan Lagi</button>
                       <button style={{marginTop:18,padding:'10px 28px',borderRadius:6,background:'#666',color:'#fff',border:'none',fontWeight:600,cursor:'pointer',fontSize:14}} onClick={()=>{setScanResult(null);onClose();}}>Selesai</button>
                     </>
                   )}
