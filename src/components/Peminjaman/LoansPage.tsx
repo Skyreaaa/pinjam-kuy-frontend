@@ -127,12 +127,7 @@ const LoansPage: React.FC = () => {
 				accuracy: meta.accuracy,
 				time: meta.time
 			};
-			const data = await loanApi.markReadyToReturn(uploadModalLoan.id, file, metadata);
-			
-			clearInterval(progressInterval);
-			setUploadProgress(90);
-			
-			console.log('[UPLOAD] Backend response:', data);
+		const data = await loanApi.markReadyToReturn(Number(uploadModalLoan.id), file, metadata);
 			
 			if (data.success) {
 				setUploadProgress(100);
