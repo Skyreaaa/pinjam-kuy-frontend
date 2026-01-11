@@ -91,6 +91,11 @@ const AdminHistoryPage: React.FC<AdminHistoryPageProps> = ({ onShowProof }) => {
 		if (searchLower && !item.username.toLowerCase().includes(searchLower)) return false;
 		return true;
 	});
+	
+	console.log('[ADMIN HISTORY PAGE] History count:', history.length);
+	console.log('[ADMIN HISTORY PAGE] Filtered count:', filtered.length);
+	console.log('[ADMIN HISTORY PAGE] Loading:', isLoading);
+	console.log('[ADMIN HISTORY PAGE] Error:', error);
 
 	return (
 		<div className="admin-sub-view">
@@ -169,15 +174,18 @@ const AdminHistoryPage: React.FC<AdminHistoryPageProps> = ({ onShowProof }) => {
 							</tr>
 						</thead>
 						<tbody>
-							{filtered.length === 0 && !isLoading ? (
-							<tr><td colSpan={9} style={{padding: 0}}>
-								<EmptyState
-									icon="📋"
-									title="Belum ada riwayat"
-									description="Riwayat peminjaman dan pengembalian akan muncul di sini"
-								/>
-							</td></tr>
-							) : filtered.map(item => (
+						{isLoading ? (
+							<tr><td colSpan={9}><p className="loading-bar">Memuat data...</p></td></tr>
+						) : filtered.length === 0 ? (
+						<tr><td colSpan={9} style={{padding: 0}}>
+							<EmptyState
+								icon="📋"
+								title="Belum ada riwayat"
+								description="Riwayat peminjaman dan pengembalian akan muncul di sini"
+							/>
+						</td></tr>
+						) : (
+							filtered.map(item => (
 								<tr key={item.id}>
 									<td>
 										<span className={`status-badge status-${item.status === 'Dikembalikan' ? 'returned' : item.status === 'Ditolak' ? 'rejected' : ''}`}>
@@ -238,7 +246,8 @@ const AdminHistoryPage: React.FC<AdminHistoryPageProps> = ({ onShowProof }) => {
 										)}
 									</td>
 								</tr>
-							))}
+							))
+						)}
 						</tbody>
 					</table>
 				</div>
