@@ -122,20 +122,26 @@ exports.requestLoan = async (req, res) => {
         const randomPart = Math.random().toString(36).substring(2, 6).toUpperCase();
         const datePart = format(now, 'yyyyMMdd');
         const kodePinjam = `KP-${datePart}-${randomPart}`;
+        
+        // Set loanDate (waktu QR generated) dan approvedAt langsung
+        const loanDateStr = format(now, 'yyyy-MM-dd HH:mm:ss');
+        const approvedAtStr = format(now, 'yyyy-MM-dd HH:mm:ss');
 
-        // Insert loan record (PostgreSQL) - Status awal: Menunggu Persetujuan
+        // Insert loan record (PostgreSQL) - Status langsung 'Disetujui' dengan loanDate & approvedAt
         const insertSQL = `
-            INSERT INTO loans (user_id, book_id, expectedreturndate, status, kodepinjam, purpose) 
-            VALUES ($1, $2, $3, $4, $5, $6) 
+            INSERT INTO loans (user_id, book_id, loandate, expectedreturndate, status, kodepinjam, purpose, approvedat) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
             RETURNING id
         `;
         const result = await pool.query(insertSQL, [
             userId, 
-            bookId, 
+            bookId,
+            loanDateStr,
             expectedReturnDate, 
-            'Menunggu Persetujuan', 
+            'Disetujui', // Langsung disetujui otomatis
             kodePinjam, 
-            purpose || null
+            purpose || null,
+            approvedAtStr
         ]);
 
         // Kurangi Stok Tersedia
@@ -144,29 +150,38 @@ exports.requestLoan = async (req, res) => {
         const loanPayload = {
             id: result.rows[0].id,
             bookTitle: book.title,
-            loanDate: null, // Belum diambil, akan di-set saat scan QR
+            loanDate: loanDateStr, // QR sudah aktif
             expectedReturnDate,
-            status: 'Menunggu Persetujuan',
+            status: 'Disetujui',
             kodePinjam,
         };
         if (purpose) loanPayload.purpose = purpose;
 
-        // --- TRIGGER SOCKET.IO NOTIFIKASI ADMIN ---
+        // --- TRIGGER SOCKET.IO NOTIFIKASI USER: QR Code Siap ---
         try {
             const io = req.app.get('io');
             if (io) {
+                // Notif ke user bahwa QR code sudah siap
+                io.to(`user_${userId}`).emit('notification', {
+                    message: `QR Code untuk buku "${book.title}" sudah siap! Tunjukkan ke petugas untuk mengambil buku.`,
+                    type: 'success',
+                    loanId: result.rows[0].id,
+                    kodePinjam: kodePinjam
+                });
+                
+                // Notif ke admin bahwa ada pinjaman baru yang siap di-scan
                 io.to('admins').emit('notification', {
-                    message: `Permintaan pinjam baru: Buku "${book.title}" oleh user ID ${userId}.`,
+                    message: `Pinjaman baru: Buku "${book.title}" oleh user ID ${userId}. QR: ${kodePinjam}`,
                     type: 'info',
                 });
             }
         } catch (err) {
-            console.warn('[SOCKET.IO][NOTIF] Gagal kirim notif requestLoan ke admin:', err.message);
+            console.warn('[SOCKET.IO][NOTIF] Gagal kirim notif requestLoan:', err.message);
         }
         
         res.json({
             success: true,
-            message: `Permintaan pinjaman buku "${book.title}" berhasil diajukan. Menunggu persetujuan admin.`,
+            message: `QR Code untuk buku "${book.title}" sudah siap! Tunjukkan QR code ke petugas untuk mengambil buku. Berlaku 24 jam.`,
             loan: loanPayload
         });
 
@@ -250,6 +265,8 @@ exports.getUserLoans = async (req, res) => {
         if (names.includes('finepaymentstatus')) selectParts.push('l.finepaymentstatus AS "finePaymentStatus"');
         if (names.includes('finepaymentmethod')) selectParts.push('l.finepaymentmethod AS "finePaymentMethod"');
         if (names.includes('finepaymentproof')) selectParts.push('l.finepaymentproof AS "finePaymentProof"');
+        if (names.includes('finereason')) selectParts.push('l.finereason AS "fineReason"');
+        if (names.includes('returnproofurl')) selectParts.push('l.returnproofurl AS "returnProofUrl"');
         
         // Book columns with proper aliases
         selectParts.push(
@@ -288,6 +305,18 @@ exports.getUserLoans = async (req, res) => {
             }
         }
         
+        // Debug: Log loans with fines for troubleshooting
+        const loansWithFines = rows.filter(loan => loan.fineAmount > 0);
+        if (loansWithFines.length > 0) {
+            console.log('💰 [getUserLoans] Found loans with fines:', loansWithFines.map(l => ({
+                id: l.id,
+                status: l.status,
+                fineAmount: l.fineAmount,
+                finePaid: l.finePaid,
+                fineReason: l.fineReason
+            })));
+        }
+        
         res.json(rows);
     } catch (error) {
         console.error('❌ Error fetching user loans:', error);
@@ -307,10 +336,11 @@ exports.cancelLoan = async (req, res) => {
         // No transactions for now
 
         // Cek kepemilikan dan status
-        const [loans] = await pool.query(
-            'SELECT status, book_id FROM loans WHERE id =: AND user_id = $2',
+        const loansResult = await pool.query(
+            'SELECT status, book_id FROM loans WHERE id = $1 AND user_id = $2',
             [loanId, userId]
         );
+        const loans = loansResult.rows;
 
         if (loans.length === 0) {
             // No rollback
@@ -327,7 +357,7 @@ exports.cancelLoan = async (req, res) => {
 
         // Update status menjadi Dibatalkan User (cancelled by user)
         await pool.query(
-            'UPDATE loans SET status =: WHERE id = $2',
+            'UPDATE loans SET status = $1 WHERE id = $2',
             ['Dibatalkan User', loanId]
         );
 
@@ -1034,8 +1064,8 @@ exports.ackReturnNotifications = async (req, res) => {
         return res.status(400).json({ success:false, message:'IDs diperlukan.' });
     }
     try {
-        const placeholders = ids.map(()=>'?').join(',');
-        await pool.query(`UPDATE loans SET returnNotified = 1 WHERE user_id =: AND id IN (${placeholders})`, [userId, ...ids]);
+        const placeholders = ids.map((_, i) => `$${i + 2}`).join(',');
+        await pool.query(`UPDATE loans SET returnNotified = TRUE WHERE user_id = $1 AND id IN (${placeholders})`, [userId, ...ids]);
         res.json({ success:true });
     } catch (e){
         console.error('❌ Error ackReturnNotifications:', e);

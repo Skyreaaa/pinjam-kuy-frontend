@@ -175,10 +175,8 @@ const LoansPage: React.FC = () => {
 				<div style={{ color: '#888', textAlign: 'center', margin: '32px 0' }}>{emptyMsg}</div>
 			) : (
 				loans.map((loan: Loan & { lampiran?: string; attachment_url?: string }) => {
-					// Cek apakah buku digital
-					const isDigitalBook = loan.lampiran && loan.lampiran !== 'Tidak Ada' && loan.attachment_url;
-					
-					console.log('Loan:', loan.bookTitle, '| lampiran:', loan.lampiran, '| attachment_url:', loan.attachment_url, '| isDigital:', isDigitalBook);
+					// Cek apakah buku digital (harus return boolean)
+					const isDigitalBook = !!(loan.lampiran && loan.lampiran !== 'Tidak Ada' && loan.attachment_url);
 					
 					// Cek QR expiry untuk auto-cancel
 					let qrExpired = false;
