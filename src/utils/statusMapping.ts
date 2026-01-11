@@ -16,12 +16,14 @@ export const mapStatus = (pgStatus: string): string => {
 
 // Check if loan is ready to show QR (pending status means approved but not yet scanned)
 export const isQRReady = (status: string): boolean => {
-  return status?.toLowerCase() === 'pending';
+  const lowerStatus = status?.toLowerCase();
+  return lowerStatus === 'pending' || lowerStatus === 'disetujui';
 };
 
 // Check if loan allows return proof upload
 export const canUploadReturnProof = (status: string): boolean => {
-  return status?.toLowerCase() === 'dipinjam';
+  const lowerStatus = status?.toLowerCase();
+  return lowerStatus === 'dipinjam' || lowerStatus === 'sedang dipinjam';
 };
 
 // Get status CSS class

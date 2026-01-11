@@ -13,7 +13,7 @@ import { loanApi, userApi } from '../../services/api';
 import { Loan } from '../../types';
 import QRCodeDisplay from '../common/QRCodeDisplay';
 import { getSocket } from '../../services/socket';
-import { mapStatus, isQRReady, canUploadReturnProof, getStatusClass } from '../../utils/statusMapping';
+import { isQRReady, canUploadReturnProof, getStatusClass } from '../../utils/statusMapping';
 
 const LoansPage: React.FC = () => {
 	const [loans, setLoans] = useState<Loan[]>([]);
@@ -42,33 +42,24 @@ const LoansPage: React.FC = () => {
 		setError(null);
 		try {
 			const data = await loanApi.userLoans();
-			console.log('🔍 DEBUG: Raw API response data:', data);
 			
 			// Map LoanDto[] to Loan[]
-			setLoans(data.map((item: any) => {
-				console.log('🔍 DEBUG: Processing loan item:', {
-					id: item.id, 
-					rawStatus: item.status,
-					bookTitle: item.bookTitle
-				});
-				
-				return {
-					id: item.id,
-					kodePinjam: item.kodePinjam ?? '',
-					bookTitle: item.bookTitle ?? '',
-					kodeBuku: item.kodeBuku,
-					loanDate: item.loanDate,
-					returnDate: item.returnDate || item.expectedReturnDate || '',
-					status: item.status, // Keep raw status from API
-					penaltyAmount: item.penaltyAmount ?? item.fineAmount,
-					actualReturnDate: item.actualReturnDate,
-					borrowerName: item.borrowerName,
-					location: item.location,
-					// Tambahan untuk buku digital
-					lampiran: item.lampiran,
-					attachment_url: item.attachment_url,
-				};
-			}));
+			setLoans(data.map((item: any) => ({
+				id: item.id,
+				kodePinjam: item.kodePinjam ?? '',
+				bookTitle: item.bookTitle ?? '',
+				kodeBuku: item.kodeBuku,
+				loanDate: item.loanDate,
+				returnDate: item.returnDate || item.expectedReturnDate || '',
+				status: item.status, // Keep raw status from API
+				penaltyAmount: item.penaltyAmount ?? item.fineAmount,
+				actualReturnDate: item.actualReturnDate,
+				borrowerName: item.borrowerName,
+				location: item.location,
+				// Tambahan untuk buku digital
+				lampiran: item.lampiran,
+				attachment_url: item.attachment_url,
+			})));
 		} catch (e: any) {
 			setError('Gagal memuat data pinjaman');
 		}
@@ -256,7 +247,7 @@ const LoansPage: React.FC = () => {
 									{loan.bookTitle || <span style={{color:'#bbb'}}>Judul tidak tersedia</span>}
 									{isDigitalBook && <span style={{marginLeft:8,fontSize:'0.75rem',background:'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',color:'#fff',padding:'2px 8px',borderRadius:12,fontWeight:600}}>Digital</span>}
 								</div>
-								<span className={`loan-status ${getStatusClass(originalStatus)}`}>{displayStatus}</span>
+								<span className={`loan-status ${getStatusClass(loan.status)}`}>{loan.status}</span>
 							</div>
 							<div className="loan-card-body">
 								<div className="loan-kode">Kode: <b>{loan.kodePinjam}</b></div>
@@ -270,13 +261,13 @@ const LoansPage: React.FC = () => {
 								{typeof loan.penaltyAmount === 'number' && loan.penaltyAmount > 0 && (
 									<div className="loan-info-row"><FaMoneyBillWave style={{marginRight:4}}/> <span>Denda:</span> <b>Rp {loan.penaltyAmount.toLocaleString('id-ID')}</b></div>
 								)}
-								{/* QR Timer - HANYA untuk buku fisik status pending (Disetujui) */}
-								{!isDigitalBook && isQRReady(originalStatus) && timeLeft && (
+								{/* QR Timer - HANYA untuk buku fisik status Disetujui */}
+								{!isDigitalBook && isQRReady(loan.status) && timeLeft && (
 									<div className="qr-validity" style={{background:'#e3f2fd',padding:'8px 12px',borderRadius:8,marginTop:8,fontSize:'0.9rem',fontWeight:600,color:'#1976d2',textAlign:'center'}}>
 										⏰ QR berlaku: {timeLeft}
 									</div>
 								)}
-								{!isDigitalBook && isQRReady(originalStatus) && qrExpired && (
+								{!isDigitalBook && isQRReady(loan.status) && qrExpired && (
 									<div className="qr-expired" style={{background:'#ffebee',padding:'8px 12px',borderRadius:8,marginTop:8,fontSize:'0.9rem',fontWeight:600,color:'#c62828',textAlign:'center'}}>
 										⚠️ QR Expired - Peminjaman dibatalkan
 									</div>
