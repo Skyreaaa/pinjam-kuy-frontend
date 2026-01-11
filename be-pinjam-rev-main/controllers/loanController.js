@@ -1532,12 +1532,12 @@ exports.getUserActivityHistory = async (req, res) => {
                 l.expectedreturndate AS "expectedReturnDate",
                 l.actualreturndate AS "actualReturnDate",
                 l.status,
-                l.fineamount AS "fineAmount",
+                COALESCE(l.fineamount, 0) AS "fineAmount",
                 l.finepaid AS "finePaid",
-                l.finereason AS "fineReason",
-                l.rejectionreason AS "rejectionReason",
+                COALESCE(l.finereason, '') AS "fineReason",
+                COALESCE(l.rejectionreason, '') AS "rejectionReason",
                 l.rejectiondate AS "rejectionDate",
-                l.adminrejectionproof AS "adminRejectionProof",
+                COALESCE(l.adminrejectionproof, '') AS "adminRejectionProof",
                 l.returnproofurl AS "returnProofUrl",
                 l.returnproofmetadata AS "returnProofMetadata",
                 l.createdat AS "createdAt",
@@ -1605,7 +1605,7 @@ exports.getUserActivityHistory = async (req, res) => {
                     fineReason: loan.fineReason,
                     returnProofUrl: loan.returnProofUrl,
                     returnProofMetadata: loan.returnProofMetadata,
-                    description: `Mengembalikan buku "${loan.bookTitle}"${loan.fineAmount > 0 ? ` (Denda: Rp ${loan.fineAmount.toLocaleString('id-ID')})` : ''}`
+                    description: `Mengembalikan buku "${loan.bookTitle}"${loan.fineAmount && loan.fineAmount > 0 ? ` (Denda: Rp ${loan.fineAmount.toLocaleString('id-ID')})` : ''}`
                 });
             }
             
@@ -1637,7 +1637,7 @@ exports.getUserActivityHistory = async (req, res) => {
                 status: payment.status,
                 verifiedAt: payment.verifiedAt,
                 adminNotes: payment.adminNotes,
-                description: `Pembayaran denda Rp ${payment.amountTotal.toLocaleString('id-ID')} (${payment.method === 'qris' ? 'QRIS' : payment.method === 'bank_transfer' ? 'Transfer Bank' : 'Tunai'})`
+                description: `Pembayaran denda Rp ${payment.amountTotal ? payment.amountTotal.toLocaleString('id-ID') : '0'} (${payment.method === 'qris' ? 'QRIS' : payment.method === 'bank_transfer' ? 'Transfer Bank' : 'Tunai'})`
             });
         });
         

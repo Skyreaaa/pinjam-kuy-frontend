@@ -35,12 +35,36 @@ const QRScanModal: React.FC<QRScanModalProps> = ({ isOpen, onClose, onScan, scan
   useEffect(() => {
     if (!isOpen) return;
     setErrorMsg(null);
-    Html5Qrcode.getCameras().then(devices => {
-      setCameras(devices);
-      if (devices.length > 0) setSelectedCameraId(devices[0].id);
-      if (devices.length === 0) setErrorMsg('Tidak ada kamera yang terdeteksi di perangkat ini.');
-    }).catch(() => setErrorMsg('Tidak dapat mengakses kamera. Pastikan izin kamera sudah diberikan di browser.'));
-    return () => { setCameras([]); setSelectedCameraId(undefined); };
+    
+    // Request camera permission first
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(() => {
+        // Camera permission granted, get cameras
+        Html5Qrcode.getCameras().then(devices => {
+          console.log('📷 Available cameras:', devices);
+          setCameras(devices);
+          if (devices.length > 0) {
+            // Prefer back camera for mobile, otherwise use first available
+            const backCamera = devices.find(d => d.label.toLowerCase().includes('back') || d.label.toLowerCase().includes('rear') || d.label.toLowerCase().includes('environment'));
+            setSelectedCameraId(backCamera?.id || devices[0].id);
+          }
+          if (devices.length === 0) {
+            setErrorMsg('Tidak ada kamera yang terdeteksi di perangkat ini.');
+          }
+        }).catch(err => {
+          console.error('❌ Error getting cameras:', err);
+          setErrorMsg('Tidak dapat mengakses daftar kamera. Pastikan perangkat memiliki kamera.');
+        });
+      })
+      .catch(err => {
+        console.error('❌ Camera permission denied:', err);
+        setErrorMsg('Izin kamera ditolak. Silakan beri izin kamera di browser Anda untuk melanjutkan scan QR.');
+      });
+    
+    return () => { 
+      setCameras([]); 
+      setSelectedCameraId(undefined); 
+    };
   }, [isOpen]);
 
   // Start/stop scanner
@@ -64,7 +88,7 @@ const QRScanModal: React.FC<QRScanModalProps> = ({ isOpen, onClose, onScan, scan
     html5QrRef.current
       .start(
         { deviceId: { exact: selectedCameraId } },
-        { fps: 15, qrbox: undefined },
+        { fps: 15, qrbox: { width: 250, height: 250 }, aspectRatio: 1.0 },
         async (decodedText) => {
           if (isActive && scannerRunningRef.current) {
             // Jangan stop scanner, biarkan tetap berjalan untuk scan berikutnya

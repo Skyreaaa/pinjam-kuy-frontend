@@ -434,14 +434,14 @@ const LoansPage: React.FC = () => {
 							<h3>Kode Peminjaman Anda</h3>
 							<div className="qr-content-box">
 								<div className="loan-code-display" style={{color:'#e53935',marginBottom:10,fontWeight:700,fontSize:'1.2rem'}}>{qrModalLoan.kodePinjam}</div>
-								<QRCodeDisplay value={qrModalLoan.kodePinjam} size={180} />
+								<QRCodeDisplay value={qrModalLoan.kodePinjam} size={220} />
 								<div className="qr-actions">
 									<button className="btn-copy-qr" onClick={() => {navigator.clipboard.writeText(qrModalLoan.kodePinjam)}}>Salin Kode</button>
 									<button className="btn-download-qr" onClick={async () => {
 										try {
-											const qrSize = 1800;
-											const margin = 124;
-											const logoSize = 340;
+											const qrSize = 2400; // Increased size for better quality
+											const margin = 200;
+											const logoSize = 480;
 											const canvas = document.createElement('canvas');
 											canvas.width = qrSize;
 											canvas.height = qrSize;

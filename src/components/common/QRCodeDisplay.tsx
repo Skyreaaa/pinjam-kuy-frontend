@@ -13,7 +13,14 @@ const QRCodeDisplay: React.FC<QRCodeDisplayProps> = ({ value, size = 180, label,
   <div style={{ textAlign: 'center', margin: '1rem 0' }}>
     {label && <div style={{ marginBottom: 8, fontWeight: 'bold' }}>{label}</div>}
     <div style={{ position: 'relative', display: 'inline-block', width: size, height: size, background: '#fff', borderRadius: 12 }}>
-      <QRCodeCanvas value={value} size={size} id={id} style={{ background: '#fff', borderRadius: 12 }} />
+      <QRCodeCanvas 
+        value={value} 
+        size={size} 
+        id={id} 
+        level="H" 
+        includeMargin={false}
+        style={{ background: '#fff', borderRadius: 12 }} 
+      />
       <div
         style={{
           position: 'absolute',

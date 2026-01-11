@@ -32,6 +32,7 @@ const slideshowImages = [depanPerpusImg, dalamPerpusImg, kasirPerpusImg, lt2Perp
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [npm, setNpm] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -41,6 +42,22 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
   useEffect(() => {
     window.history.replaceState(null, '', '/login');
+    
+    // Load saved credentials if "Remember Me" was checked
+    const savedCredentials = localStorage.getItem('savedCredentials');
+    if (savedCredentials) {
+      try {
+        const { npm: savedNpm, password: savedPassword } = JSON.parse(savedCredentials);
+        if (savedNpm && savedPassword) {
+          setNpm(savedNpm);
+          setPassword(savedPassword);
+          setRememberMe(true);
+        }
+      } catch (err) {
+        // Clear invalid saved data
+        localStorage.removeItem('savedCredentials');
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -60,6 +77,16 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setLoading(true);
     try {
       const { token, userData } = await authApi.login(npm, password);
+      
+      // Handle "Remember Me" functionality
+      if (rememberMe) {
+        // Save credentials securely in localStorage
+        localStorage.setItem('savedCredentials', JSON.stringify({ npm, password }));
+      } else {
+        // Remove saved credentials if unchecked
+        localStorage.removeItem('savedCredentials');
+      }
+      
       const redirectPath = userData && userData.role === 'admin' ? '/admin-dashboard' : '/home';
       // Simpan token sesuai role
       if (userData.role === 'admin') {
@@ -166,7 +193,12 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           </div>
           <div className="form-options">
             <div className="remember-me">
-              <input type="checkbox" id="rememberMe" />
+              <input 
+                type="checkbox" 
+                id="rememberMe" 
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />
               <label htmlFor="rememberMe">Ingat Saya</label>
             </div>
           </div>

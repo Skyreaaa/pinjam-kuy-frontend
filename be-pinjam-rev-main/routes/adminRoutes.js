@@ -73,13 +73,13 @@ router.get('/users', async (req, res) => {
 
 router.post('/users', async (req, res) => {
     const pool = req.app.get('dbPool');
-    const { npm, username, password, role = 'user' } = req.body;
+    const { npm, username, password, role = 'user', fakultas, prodi, angkatan } = req.body;
     try {
         const bcrypt = require('bcrypt');
         const hashedPassword = await bcrypt.hash(password, 10);
         const result = await pool.query(
-            'INSERT INTO users (npm, username, password, role) VALUES ($1, $2, $3, $4) RETURNING *',
-            [npm, username, hashedPassword, role]
+            'INSERT INTO users (npm, username, password, role, fakultas, prodi, angkatan) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+            [npm, username, hashedPassword, role, fakultas || null, prodi || null, angkatan || null]
         );
         res.json({ success: true, user: result.rows[0] });
     } catch (error) {
@@ -91,12 +91,23 @@ router.post('/users', async (req, res) => {
 router.put('/users/:id', async (req, res) => {
     const pool = req.app.get('dbPool');
     const { id } = req.params;
-    const { npm, username, role, fakultas, prodi, angkatan } = req.body;
+    const { npm, username, role, fakultas, prodi, angkatan, password } = req.body;
     try {
-        const result = await pool.query(
-            'UPDATE users SET npm = $1, username = $2, role = $3, fakultas = $4, prodi = $5, angkatan = $6 WHERE id = $7 RETURNING *',
-            [npm, username, role, fakultas || null, prodi || null, angkatan || null, id]
-        );
+        let query, params;
+        
+        if (password && password.trim() !== '') {
+            // Update dengan password baru
+            const bcrypt = require('bcrypt');
+            const hashedPassword = await bcrypt.hash(password, 10);
+            query = 'UPDATE users SET npm = $1, username = $2, role = $3, fakultas = $4, prodi = $5, angkatan = $6, password = $7 WHERE id = $8 RETURNING *';
+            params = [npm, username, role, fakultas || null, prodi || null, angkatan || null, hashedPassword, id];
+        } else {
+            // Update tanpa mengubah password
+            query = 'UPDATE users SET npm = $1, username = $2, role = $3, fakultas = $4, prodi = $5, angkatan = $6 WHERE id = $7 RETURNING *';
+            params = [npm, username, role, fakultas || null, prodi || null, angkatan || null, id];
+        }
+        
+        const result = await pool.query(query, params);
         res.json({ success: true, user: result.rows[0] });
     } catch (error) {
         console.error('[ADMIN] Error updating user:', error);
