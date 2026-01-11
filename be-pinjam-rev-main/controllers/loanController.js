@@ -798,6 +798,8 @@ exports.processReturn = async (req, res) => {
             ['Dikembalikan', actualReturnDate, totalFine, 0, fineReason, loanId] // finePaid 0 karena belum dibayar
         );
         
+        console.log('✅ [processReturn] Loan updated successfully:', { loanId, totalFine, status: 'Dikembalikan' });
+        
         // 3. Tambahkan total denda ke akun user
         let totalNewFine = 0;
        if (totalFine > 0) {

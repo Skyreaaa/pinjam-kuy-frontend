@@ -67,8 +67,9 @@ const FinePaymentPage: React.FC = () => {
       });
       
       // Filter loans dengan denda yang belum dibayar
+      // Relax finePaid check: treat undefined/null as 0 (unpaid)
       const finesData: FineDetail[] = response.data.filter((loan: any) => 
-        loan.fineAmount > 0 && loan.finePaid === 0 && loan.status === 'Dikembalikan'
+        loan.fineAmount > 0 && (loan.finePaid === 0 || loan.finePaid == null) && loan.status === 'Dikembalikan'
       ).map((loan: any) => ({
         loanId: loan.id,
         bookTitle: loan.bookTitle,
