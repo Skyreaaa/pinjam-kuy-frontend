@@ -649,7 +649,7 @@ exports.approveLoan = async (req, res) => {
 };
 
 // 6b. Scan kodePinjam oleh Admin (POST /api/admin/loans/scan {kodePinjam})
-// TRANSISI: Disetujui -> Diambil (set loanDate = now)
+// TRANSISI: Disetujui -> Sedang Dipinjam
 exports.scanLoan = async (req, res) => {
     const pool = getDBPool(req);
     const { kodePinjam } = req.body;
@@ -658,20 +658,21 @@ exports.scanLoan = async (req, res) => {
     try {
         console.log('[SCAN_LOAN] Scanning kodePinjam:', kodePinjam);
         
+        // Use correct PostgreSQL table and column names
         const _pgResult = await pool.query(`
             SELECT 
-                l.id_pinjam as id, 
+                l.id, 
                 l.status, 
-                l.tanggal_pinjam as "loanDate", 
-                l.created_at as "approvedAt", 
-                l.id_buku as "bookId", 
-                l.id_user as "userId",
-                b.judul as "bookTitle",
+                l.loandate as "loanDate", 
+                l.loandate as "approvedAt", 
+                l.book_id as "bookId", 
+                l.user_id as "userId",
+                b.title as "bookTitle",
                 u.fullname as "borrowerName",
                 u.username
-            FROM loan l
-            LEFT JOIN books b ON l.id_buku = b.id_buku
-            LEFT JOIN "user" u ON l.id_user = u.id_user
+            FROM loans l
+            LEFT JOIN books b ON l.book_id = b.id
+            LEFT JOIN "user" u ON l.user_id = u.id_user
             WHERE l.kodepinjam = $1 LIMIT 1
         `, [kodePinjam]);
         console.log('[SCAN_LOAN] Query result:', _pgResult.rows.length, 'rows found');
@@ -687,18 +688,18 @@ exports.scanLoan = async (req, res) => {
         const loan = rows[0];
         console.log('[SCAN_LOAN] Found loan:', { id: loan.id, status: loan.status, bookTitle: loan.bookTitle });
         
-        // Jika status bukan 'pending' (status 'dipinjam' = sedang dipinjam), kembalikan error dengan detail
-        if (loan.status !== 'pending') {
+        // Jika status bukan 'Disetujui', kembalikan error dengan detail
+        if (loan.status !== 'Disetujui') {
             console.log('[SCAN_LOAN] Invalid status:', loan.status);
             return res.status(400).json({ 
-                message: `Status sekarang '${loan.status}'. Hanya 'pending' yang bisa discan untuk pengambilan.`,
+                message: `Status sekarang '${loan.status}'. Hanya status 'Disetujui' yang bisa discan untuk pengambilan.`,
                 bookTitle: loan.bookTitle || 'Tidak Diketahui',
                 borrowerName: loan.borrowerName || loan.username || 'Tidak Diketahui',
                 currentStatus: loan.status
             });
         }
         
-        // Check QR expiry based on created_at + 24h (PostgreSQL doesn't have approvedAt concept)
+        // Check QR expiry based on loanDate + 24h
         if (loan.approvedAt) {
             const approvedTime = new Date(loan.approvedAt).getTime();
             const nowTime = Date.now();
@@ -707,10 +708,10 @@ exports.scanLoan = async (req, res) => {
             if (nowTime > expiryTime) {
                 console.log('[SCAN_LOAN] QR expired:', { approvedAt: loan.approvedAt, nowTime, expiryTime });
                 // Auto-cancel expired QR
-                await pool.query(`UPDATE loan SET status = 'ditolak' WHERE id_pinjam = $1`, [loan.id]);
+                await pool.query(`UPDATE loans SET status = 'Ditolak' WHERE id = $1`, [loan.id]);
                 
-                // Return stock (increment stok in books table)
-                await pool.query(`UPDATE books SET stok = stok + 1 WHERE id_buku = $1`, [loan.bookId]);
+                // Return stock
+                await pool.query(`UPDATE books SET availablestock = availablestock + 1 WHERE id = $1`, [loan.bookId]);
                 
                 return res.status(400).json({ 
                     message: 'QR Expired! Kode QR sudah kedaluwarsa (lebih dari 24 jam). Silakan buat pinjaman baru.',
@@ -720,12 +721,12 @@ exports.scanLoan = async (req, res) => {
             }
         }
         
-        console.log('[SCAN_LOAN] Updating loan status to dipinjam...');
+        console.log('[SCAN_LOAN] Updating loan status to Sedang Dipinjam...');
         const now = new Date();
         
-        // Update status dari 'pending' ke 'dipinjam' dan set tanggal_pinjam
+        // Update status dari 'Disetujui' ke 'Sedang Dipinjam'
         await pool.query(
-            `UPDATE loan SET status = 'dipinjam', tanggal_pinjam = $1 WHERE id_pinjam = $2`,
+            `UPDATE loans SET status = 'Sedang Dipinjam', loandate = $1 WHERE id = $2`,
             [now, loan.id]
         );
         

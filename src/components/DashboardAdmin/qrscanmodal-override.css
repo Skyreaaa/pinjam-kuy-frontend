@@ -1,5 +1,16 @@
 /* Hilangkan background putih pada video html5-qrcode dan parentnya */
+#qr-scanner, #qr-scanner > video, #qr-scanner > canvas,
 #qr-html5-video, #qr-html5-video > video, #qr-html5-video > canvas {
   background: transparent !important;
   box-shadow: none !important;
+}
+
+/* Hide the scanning region shade */
+#qr-scanner > div[style*="background"] {
+  background: transparent !important;
+}
+
+/* Remove black bars */
+#qr-scanner video {
+  object-fit: cover !important;
 }

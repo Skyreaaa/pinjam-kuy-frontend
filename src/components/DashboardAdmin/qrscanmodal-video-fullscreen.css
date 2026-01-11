@@ -1,11 +1,21 @@
 /* Paksa video html5-qrcode agar benar-benar fullscreen dan tidak dibatasi parent */
+#qr-scanner video, #qr-scanner > video, #qr-scanner > canvas,
 #qr-html5-video video, #qr-html5-video > video, #qr-html5-video > canvas {
   width: 100% !important;
   height: 100% !important;
   object-fit: cover !important;
   background: transparent !important;
-  border-radius: 2.5vw !important;
+  border-radius: 12px !important;
   box-shadow: none !important;
   margin: 0 !important;
   padding: 0 !important;
+}
+
+/* Remove black letterbox bars caused by aspect ratio mismatch */
+#qr-scanner {
+  background: transparent !important;
+}
+
+#qr-scanner > div {
+  background: transparent !important;
 }
