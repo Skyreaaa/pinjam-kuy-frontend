@@ -340,7 +340,6 @@ const LoansPage: React.FC = () => {
 									</div>
 								</div>
 							)}
-							</div>
 						</div>
 					);
 				})
