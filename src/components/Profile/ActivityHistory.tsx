@@ -216,13 +216,6 @@ const ActivityHistory: React.FC = () => {
           Ditolak ({activities.filter(a => a.type === 'return_rejected').length})
         </button>
       </div>
-        <button 
-          className={`filter-tab ${filter === 'return' ? 'active' : ''}`}
-          onClick={() => setFilter('return')}
-        >
-          Pengembalian ({activities.filter(a => a.type === 'return').length})
-        </button>
-      </div>
 
       {filteredActivities.length === 0 ? (
         <div className="empty-state">

@@ -40,19 +40,6 @@ const sendUserNotification = async (pool, userId, message, type = 'info') => {
     }
 };
 
-// Helper untuk mengirim notifikasi user ke database
-const sendUserNotification = async (pool, userId, message, type = 'info') => {
-    try {
-        await pool.query(
-            'INSERT INTO user_notifications (user_id, message, type, is_broadcast) VALUES ($1, $2, $3, $4)',
-            [userId, message, type, false]
-        );
-        console.log(`✅ [USER_NOTIF] Sent to user ${userId}: ${message}`);
-    } catch (error) {
-        console.error(`❌ [USER_NOTIF] Failed to send to user ${userId}:`, error);
-    }
-};
-
 // =========================================================
 //                   RUTE USER (Peminjaman)
 // =========================================================
