@@ -232,6 +232,10 @@ export const adminApi = {
   // Fine payments management
   get: (path: string) => adminApiAxios.get(`/admin${path}`).then(r => r.data),
   post: (path: string, data: any, config?: any) => adminApiAxios.post(`/admin${path}`, data, config).then(r => r.data),
+  
+  // Broadcast
+  broadcast: (data: { message: string; type?: string; userIds?: number[] }) => 
+    adminApiAxios.post('/admin/broadcast', data).then(r => r.data),
 };
 
 // Utility mapper for inconsistent naming between endpoints and UI components

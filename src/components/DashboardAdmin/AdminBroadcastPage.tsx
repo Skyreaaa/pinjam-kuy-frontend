@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { FaBullhorn, FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaInfoCircle, FaPaperPlane } from 'react-icons/fa';
 import './AdminDashboard.css';
 import EmptyState from '../common/EmptyState';
+import { adminApi } from '../../services/api';
 
 const typeMeta = {
   info: { color: '#3498db', icon: <FaInfoCircle /> },
@@ -27,10 +28,7 @@ const AdminBroadcastPage: React.FC = () => {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/admin/users', {
-          headers: { 'Authorization': `Bearer ${sessionStorage.getItem('admin_token')}` }
-        });
-        const data = await res.json();
+        const data = await adminApi.users();
         if (Array.isArray(data)) {
           // Exclude admin
           const filtered = data.filter((u:any) => u.role !== 'admin');
@@ -41,7 +39,9 @@ const AdminBroadcastPage: React.FC = () => {
             setAngkatanTab(firstAngkatan);
           }
         }
-      } catch {}
+      } catch(err) {
+        console.error('Failed to fetch users:', err);
+      }
     })();
     // eslint-disable-next-line
   }, []);
@@ -118,15 +118,11 @@ const AdminBroadcastPage: React.FC = () => {
     setResult(null);
     try {
       const res = await fetch('/api/admin/broadcast', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${sessionStorage.getItem('admin_token')}`,
-        },
-        body: JSON.stringify({ message, type, userIds: selectedUserIds.length ? selectedUserIds : undefined }),
-      });
-      const data = await res.json();
-      if (data.success) {
+        methdata = await adminApi.broadcast({
+        message,
+        type,
+        userIds: selectedUserIds.length ? selectedUserIds : undefined
+      }
         setResult(selectedUserIds.length ? 'Broadcast berhasil dikirim ke user terpilih!' : 'Broadcast berhasil dikirim ke semua user!');
         setMessage('');
         setSelectedUserIds([]);
