@@ -87,6 +87,7 @@ const QRScanModal: React.FC<QRScanModalProps> = ({ isOpen, onClose, onScan, scan
     html5QrRef.current = new Html5Qrcode(scannerRef.current.id);
     let isActive = true;
     scannerRunningRef.current = true;
+    console.log('📷 Starting QR scanner with device:', selectedCameraId);
     html5QrRef.current
       .start(
         { deviceId: selectedCameraId },
@@ -95,11 +96,13 @@ const QRScanModal: React.FC<QRScanModalProps> = ({ isOpen, onClose, onScan, scan
           if (isActive && scannerRunningRef.current) {
             // Jangan stop scanner, biarkan tetap berjalan untuk scan berikutnya
             if (decodedText) {
+              console.log('✅ QR Code detected:', decodedText);
               // Cek apakah QR code yang sama baru saja di-scan (dalam 3 detik terakhir)
               const now = Date.now();
               if (lastScannedRef.current && 
                   lastScannedRef.current.code === decodedText && 
                   now - lastScannedRef.current.time < 3000) {
+                console.log('⏭️ Duplicate scan skipped (within 3s)');
                 // Skip - QR yang sama baru saja di-scan
                 return;
               }
@@ -107,6 +110,7 @@ const QRScanModal: React.FC<QRScanModalProps> = ({ isOpen, onClose, onScan, scan
               // Update last scanned
               lastScannedRef.current = { code: decodedText, time: now };
               
+              console.log('📤 Sending scan request to backend:', decodedText);
               setLoadingDetail(true);
               try {
                 // Use adminApiAxios to scan kodePinjam
@@ -121,7 +125,7 @@ const QRScanModal: React.FC<QRScanModalProps> = ({ isOpen, onClose, onScan, scan
                   message: data.message
                 });
               } catch (e: any) {
-                console.error('❌ Scan QR Error:', e?.response?.data);
+                console.error('❌ Scan QR Error:', e?.response?.data || e.message);
                 const errorData = e?.response?.data || {};
                 const errorMessage = errorData.message || 'Gagal mengambil detail peminjaman.';
                 setScanResult({
