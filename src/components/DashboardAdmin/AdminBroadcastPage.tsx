@@ -49,12 +49,13 @@ const AdminBroadcastPage: React.FC = () => {
   const fetchHistory = async () => {
     setLoadingHistory(true);
     try {
-      const res = await fetch('/api/user/notifications?broadcast=1', {
-        headers: { 'Authorization': `Bearer ${sessionStorage.getItem('admin_token')}` }
-      });
-      const data = await res.json();
-      if (Array.isArray(data)) setHistory(data);
-    } catch {}
+      const data = await adminApi.get('/broadcast/history');
+      if (data?.success && Array.isArray(data.items)) {
+        setHistory(data.items);
+      }
+    } catch (err) {
+      console.error('[BROADCAST] Error fetching history:', err);
+    }
     setLoadingHistory(false);
   };
   useEffect(() => { fetchHistory(); }, []);

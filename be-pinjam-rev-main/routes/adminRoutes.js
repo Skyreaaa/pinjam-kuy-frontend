@@ -115,6 +115,26 @@ router.delete('/users/:id', async (req, res) => {
     }
 });
 
+// Get broadcast history
+router.get('/broadcast/history', async (req, res) => {
+    console.log('📊 [BROADCAST] Get history request');
+    const pool = req.app.get('dbPool');
+    try {
+        const result = await pool.query(
+            `SELECT id, user_id, type, message, is_broadcast, read, "createdAt" 
+             FROM user_notifications 
+             WHERE is_broadcast = true 
+             ORDER BY "createdAt" DESC 
+             LIMIT 50`
+        );
+        console.log(`✅ [BROADCAST] Found ${result.rows.length} broadcast messages`);
+        res.json({ success: true, items: result.rows });
+    } catch (err) {
+        console.error('[ADMIN][BROADCAST][HISTORY] Error:', err);
+        res.status(500).json({ success: false, message: 'Gagal mengambil riwayat broadcast: ' + err.message });
+    }
+});
+
 // Broadcast route (harus setelah authenticateAdmin)
 router.post('/broadcast', async (req, res) => {
     console.log('📢 [BROADCAST] Received request:', req.body);
@@ -123,6 +143,7 @@ router.post('/broadcast', async (req, res) => {
         return res.status(400).json({ success: false, message: 'Pesan broadcast tidak boleh kosong.' });
     }
     try {
+        const pool = req.app.get('dbPool');
         const io = req.app.get('io');
         console.log('📢 [BROADCAST] IO available:', !!io);
         
@@ -131,32 +152,31 @@ router.post('/broadcast', async (req, res) => {
             console.log(`📢 [BROADCAST] Sending to ${userIds.length} specific users`);
             // Simpan notifikasi untuk setiap user
             for (const userId of userIds) {
-                await UserNotification.create({ user_id: userId, type, message, is_broadcast: 0 });
-                // Socket.IO ke user tertentu
-                if (io) {
-                    io.to(`user_${userId}`).emit('notification', {
-                        message,
-                        type,
-                        is_broadcast: false,
-                    });
-                }
-                // Push notification ke user tertentu
                 try {
-                    await pushController.sendPushNotification(userId, 'user', {
-                        title: 'Pemberitahuan',
-                        message: message,
-                        tag: 'notification',
-                        data: { type, is_broadcast: false },
-                        requireInteraction: type === 'warning' || type === 'error'
-                    });
-                } catch (pushErr) {
-                    console.warn(`[PUSH] Gagal kirim ke user ${userId}:`, pushErr.message);
+                    await pool.query(
+                        'INSERT INTO user_notifications (user_id, type, message, is_broadcast, read) VALUES ($1, $2, $3, $4, $5)',
+                        [userId, type, message, false, false]
+                    );
+                    // Socket.IO ke user tertentu
+                    if (io) {
+                        io.to(`user_${userId}`).emit('notification', {
+                            message,
+                            type,
+                            is_broadcast: false,
+                        });
+                    }
+                } catch (notifErr) {
+                    console.warn(`[BROADCAST] Error saving notification for user ${userId}:`, notifErr.message);
                 }
             }
             console.log(`✅ Broadcast berhasil dikirim ke ${userIds.length} user`);
+            return res.json({ success: true, message: `Broadcast berhasil dikirim ke ${userIds.length} user` });
         } else {
             // Broadcast ke semua user
-            await UserNotification.create({ user_id: null, type, message, is_broadcast: 1 });
+            await pool.query(
+                'INSERT INTO user_notifications (user_id, type, message, is_broadcast, read) VALUES ($1, $2, $3, $4, $5)',
+                [null, type, message, true, false]
+            );
             
             // Kirim Socket.IO notification
             if (io) {
@@ -168,12 +188,12 @@ router.post('/broadcast', async (req, res) => {
                 });
                 console.log('✅ Socket.IO broadcast emitted (instant notification!)');
             }
+            console.log('✅ Broadcast berhasil dikirim ke semua user');
+            return res.json({ success: true, message: 'Broadcast berhasil dikirim ke semua user' });
         }
-        
-        return res.json({ success: true });
     } catch (err) {
         console.error('[ADMIN][BROADCAST] Error:', err);
-        return res.status(500).json({ success: false, message: 'Gagal mengirim broadcast.' });
+        return res.status(500).json({ success: false, message: 'Gagal mengirim broadcast: ' + err.message });
     }
 });
 
