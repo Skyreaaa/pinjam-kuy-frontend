@@ -364,7 +364,7 @@ const Profile: React.FC<ProfileProps> = ({
             <div className="qr-section-member">
               <h4 className="qr-title">QR Anggota</h4>
               {userData.npm && (
-                <QRCodeDisplay value={userData.npm} label={`NPM: ${userData.npm}`} />
+                <QRCodeDisplay value={userData.npm} label={`NPM: ${userData.npm}`} size={220} />
               )}
             </div>
             {isEditing && (
