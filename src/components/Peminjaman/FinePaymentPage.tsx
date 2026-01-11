@@ -70,15 +70,17 @@ const FinePaymentPage: React.FC = () => {
       console.log('💰 [FinePaymentPage] Loans with fines:', response.data.filter((loan: any) => loan.fineAmount > 0));
       
       // Filter loans dengan denda yang belum dibayar
-      // Relax finePaid check: treat undefined/null as 0 (unpaid)
+      // Handle finePaid as number (0) or boolean (false) or null/undefined
       const finesData: FineDetail[] = response.data.filter((loan: any) => {
         const hasFine = loan.fineAmount > 0;
-        const isUnpaid = loan.finePaid === 0 || loan.finePaid == null;
+        // Check if finePaid is 0, false, null, or undefined (all mean "unpaid")
+        const isUnpaid = !loan.finePaid || loan.finePaid === 0 || loan.finePaid == null;
         const isReturned = loan.status === 'Dikembalikan';
         
         console.log(`💰 [FinePaymentPage] Loan ${loan.id} - hasFine: ${hasFine}, isUnpaid: ${isUnpaid}, isReturned: ${isReturned}`, {
           fineAmount: loan.fineAmount,
           finePaid: loan.finePaid,
+          finePaidType: typeof loan.finePaid,
           status: loan.status
         });
         
