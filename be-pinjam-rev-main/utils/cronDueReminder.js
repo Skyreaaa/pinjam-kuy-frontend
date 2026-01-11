@@ -45,10 +45,21 @@ async function sendDueReminders(app) {
                     type: 'warning',
                 });
                 
+                // --- SAVE TO DATABASE for notification history ---
+                try {
+                    await dbPool.query(
+                        'INSERT INTO user_notifications (user_id, message, type, is_broadcast) VALUES ($1, $2, $3, $4)',
+                        [loan.user_id, message, 'warning', false]
+                    );
+                    console.log(`✅ [CRON][DUE REMINDER] Database notification saved for user ${loan.user_id}`);
+                } catch (dbErr) {
+                    console.warn(`[CRON][DUE REMINDER] Failed to save DB notification for user ${loan.user_id}:`, dbErr.message);
+                }
+                
                 // Push notification
                 try {
                     await pushController.sendPushNotification(loan.user_id, 'user', {
-                        title: 'Pemberitahuan',
+                        title: 'Reminder H-1 Pengembalian',
                         message: message,
                         tag: 'due-reminder',
                         data: { loanId: loan.id, type: 'due_reminder' },

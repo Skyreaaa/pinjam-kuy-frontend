@@ -27,6 +27,19 @@ const calculatePenalty = (expectedReturnDate, actualReturnDate) => {
     return daysLate * PENALTY_PER_DAY;
 };
 
+// Helper untuk mengirim notifikasi user ke database
+const sendUserNotification = async (pool, userId, message, type = 'info') => {
+    try {
+        await pool.query(
+            'INSERT INTO user_notifications (user_id, message, type, is_broadcast) VALUES ($1, $2, $3, $4)',
+            [userId, message, type, false]
+        );
+        console.log(`✅ [USER_NOTIF] Sent to user ${userId}: ${message}`);
+    } catch (error) {
+        console.error(`❌ [USER_NOTIF] Failed to send to user ${userId}:`, error);
+    }
+};
+
 // =========================================================
 //                   RUTE USER (Peminjaman)
 // =========================================================
@@ -178,6 +191,14 @@ exports.requestLoan = async (req, res) => {
         } catch (err) {
             console.warn('[SOCKET.IO][NOTIF] Gagal kirim notif requestLoan:', err.message);
         }
+
+        // --- TRIGGER DATABASE USER NOTIFICATION: QR Code Ready ---
+        await sendUserNotification(
+            pool, 
+            userId, 
+            `QR Code untuk buku "${book.title}" sudah siap! Tunjukkan ke petugas untuk mengambil buku.`,
+            'success'
+        );
         
         res.json({
             success: true,
@@ -342,7 +363,7 @@ exports.cancelLoan = async (req, res) => {
 
         // Cek kepemilikan dan status
         const loansResult = await pool.query(
-            'SELECT status, book_id FROM loans WHERE id = $1 AND user_id = $2',
+            'SELECT l.status, l.book_id, b.title as book_title FROM loans l JOIN books b ON l.book_id = b.id WHERE l.id = $1 AND l.user_id = $2',
             [loanId, userId]
         );
         const loans = loansResult.rows;
@@ -370,6 +391,14 @@ exports.cancelLoan = async (req, res) => {
         await pool.query(
             'UPDATE books SET availablestock = availablestock + 1 WHERE id = $1',
             [loan.book_id]
+        );
+
+        // --- TRIGGER DATABASE USER NOTIFICATION: Loan Cancelled ---
+        await sendUserNotification(
+            pool,
+            userId,
+            `Peminjaman buku "${loan.book_title}" berhasil dibatalkan. Stok buku telah dikembalikan.`,
+            'info'
         );
 
         console.log(`✅ [cancelLoan] Loan ${loanId} cancelled successfully by user ${userId}`);
@@ -680,6 +709,14 @@ exports.scanLoan = async (req, res) => {
         } catch (err) {
             console.warn('[SOCKET.IO][NOTIF] Gagal kirim notif scan ke user:', err.message);
         }
+        
+        // --- TRIGGER DATABASE USER NOTIFICATION: Book Pickup ---
+        await sendUserNotification(
+            pool,
+            loan.userId,
+            `Buku "${loan.bookTitle}" telah diambil dan siap dipinjam. Selamat membaca!`,
+            'success'
+        );
         
         // Kirim push notification ke user
         try {

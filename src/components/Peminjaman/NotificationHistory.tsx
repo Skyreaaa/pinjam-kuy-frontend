@@ -125,10 +125,12 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({ onBack }) => 
           } as NotificationItem;
         });
 
-        // --- Fine-related notifications (existing logic) ---
+        // --- Fine-related notifications (FILTERED - only show system imposed fines, not payment status) ---
         const fineItems: NotificationItem[] = (loans || []).flatMap((l: any) => {
           const arr: NotificationItem[] = [];
           const amount = (l.penaltyAmount ?? l.fineAmount ?? 0) as number;
+          
+          // Only show when fine is first imposed by system, not payment status changes
           if (l.finePaymentStatus === 'awaiting_proof' && amount > 0) {
             arr.push({ 
               id: l.id, 
@@ -139,35 +141,46 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({ onBack }) => 
               timestamp: l.actualReturnDate ? new Date(l.actualReturnDate) : new Date()
             });
           }
-          if (l.finePaymentStatus === 'paid') {
-            arr.push({ 
-              id: l.id, 
-              bookTitle: l.bookTitle, 
-              status: l.status, 
-              kind: 'fine_paid', 
-              amount,
-              timestamp: new Date()
-            });
-          }
-          if (l.finePaymentStatus === 'awaiting_proof' && l.returnProofRejected) {
-            arr.push({ 
-              id: l.id, 
-              bookTitle: l.bookTitle, 
-              status: l.status, 
-              kind: 'fine_rejected',
-              timestamp: new Date()
-            });
-          }
+          
+          // Remove fine payment status notifications - those belong in activity history
+          // if (l.finePaymentStatus === 'paid') { ... } - REMOVED
+          // if (l.finePaymentStatus === 'awaiting_proof' && l.returnProofRejected) { ... } - REMOVED
+          
           return arr;
         });
 
-        // --- User/broadcast notifications (NEW) ---
-        const userNotifItems: NotificationItem[] = (Array.isArray(userNotifRes) ? userNotifRes : (userNotifRes?.data || userNotifRes?.items || [])).map((n: any) => {
+        // --- User/broadcast notifications (FILTERED FOR SYSTEM NOTIFICATIONS ONLY) ---
+        const userNotifItems: NotificationItem[] = (Array.isArray(userNotifRes) ? userNotifRes : (userNotifRes?.data || userNotifRes?.items || [])).filter((n: any) => {
+          // Only include system notifications, not fine payment related notifications
+          const message = n.message || '';
+          const isSystemNotification = (
+            message.includes('QR Code') ||
+            message.includes('siap diambil') ||
+            message.includes('telah diambil') ||
+            message.includes('Reminder H-1') ||
+            message.includes('pembatalan') ||
+            message.includes('Permintaan pinjam buku berhasil') ||
+            message.includes('Buku siap diambil di perpustakaan') ||
+            message.includes('telah diambil dan siap dipinjam') ||
+            n.is_broadcast === true || // Include broadcast messages
+            n.type === 'broadcast'
+          );
+          
+          // Exclude fine payment related notifications - those belong in activity history
+          const isFinePayment = (
+            message.includes('pembayaran denda') ||
+            message.includes('Pembayaran denda') ||
+            message.includes('denda telah diverifikasi') ||
+            message.includes('pembayaran ditolak')
+          );
+          
+          return isSystemNotification && !isFinePayment;
+        }).map((n: any) => {
           return {
             id: n.id,
-            bookTitle: n.message || 'Notifikasi',
+            bookTitle: n.message || 'Notifikasi System',
             status: n.type || 'info',
-            kind: 'user_notif', // Changed from 'broadcast' to 'user_notif'
+            kind: n.is_broadcast ? 'broadcast' : 'user_notif',
             timestamp: n.createdAt ? new Date(n.createdAt) : new Date(),
             message: n.message, // Full message for detail view
             type: n.type, // success, error, warning, info
@@ -289,16 +302,19 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({ onBack }) => 
     switch (item.kind) {
       case 'broadcast': return 'Pengumuman/Broadcast';
       case 'user_notif': 
+        if (item.message?.includes('QR Code')) return 'QR Code Siap';
+        if (item.message?.includes('siap diambil')) return 'Buku Siap Diambil';
+        if (item.message?.includes('telah diambil')) return 'Buku Telah Diambil';
+        if (item.message?.includes('Reminder H-1')) return 'Reminder Pengembalian';
+        if (item.message?.includes('pembatalan')) return 'Peminjaman Dibatalkan';
         if (item.type === 'error') return 'Pengembalian Ditolak';
         if (item.type === 'warning') return 'Pengembalian Disetujui (Denda)';
-        if (item.type === 'success') return 'Pengembalian Disetujui';
-        return 'Notifikasi';
+        if (item.type === 'success') return 'Notifikasi System';
+        return 'Notifikasi System';
       case 'return_approved': return 'Pengembalian Disetujui';
       case 'return_rejected': return 'Bukti Pengembalian Ditolak';
       case 'loan_rejected': return 'Pinjaman Ditolak';
       case 'fine_imposed': return 'Denda Ditetapkan';
-      case 'fine_paid': return 'Pembayaran Denda Disetujui';
-      case 'fine_rejected': return 'Pembayaran Denda Ditolak';
       case 'loan_approved':
       default:
         return 'Pinjaman Disetujui';
