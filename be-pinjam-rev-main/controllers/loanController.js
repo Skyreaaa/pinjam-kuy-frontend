@@ -777,10 +777,20 @@ exports.processReturn = async (req, res) => {
         const { expectedReturnDate, book_id, user_id, denda: userCurrentFine, title: bookTitle } = loanData[0];
         
         // Hitung denda keterlambatan (Otomatis)
-        const autoPenalty = calculatePenalty(expectedReturnDate, actualReturnDate);
+        const autoPenalty = calculatePenalty(expectedReturnDate, actualReturnDate) || 0;
         
-        // Total Denda = Denda Otomatis + Denda Manual
-        const totalFine = autoPenalty + Number(manualFineAmount); 
+        // Total Denda = Denda Otomatis + Denda Manual (default 0 jika undefined/null/NaN)
+        const parsedManualFine = Number(manualFineAmount) || 0;
+        const totalFine = (autoPenalty || 0) + parsedManualFine;
+        
+        console.log('💰 [processReturn] Penalty calculation:', { 
+            expectedReturnDate, 
+            actualReturnDate, 
+            autoPenalty, 
+            manualFineAmount, 
+            parsedManualFine, 
+            totalFine 
+        }); 
 
         // 2. Update status pinjaman menjadi 'Dikembalikan', simpan denda & tanggal pengembalian
         await pool.query(

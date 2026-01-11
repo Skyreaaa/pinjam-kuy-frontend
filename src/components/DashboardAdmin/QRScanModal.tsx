@@ -66,11 +66,7 @@ const QRScanModal: React.FC<QRScanModalProps> = ({ isOpen, onClose, onScan, scan
         { fps: 15, qrbox: undefined },
         async (decodedText) => {
           if (isActive && scannerRunningRef.current) {
-            try { await html5QrRef.current?.stop(); } catch {}
-            scannerRunningRef.current = false;
-            try { await html5QrRef.current?.clear(); } catch {}
-            html5QrRef.current = null;
-            isActive = false;
+            // Jangan stop scanner, biarkan tetap berjalan untuk scan berikutnya
             if (decodedText) {
               setLoadingDetail(true);
               try {
@@ -211,7 +207,8 @@ const QRScanModal: React.FC<QRScanModalProps> = ({ isOpen, onClose, onScan, scan
                       <div style={{marginTop:12,padding:12,background:'#fff3cd',borderRadius:6,fontSize:13,color:'#856404'}}>
                         📢 Notifikasi telah dikirim ke peminjam
                       </div>
-                      <button style={{marginTop:18,padding:'10px 28px',borderRadius:6,background:'#27ae60',color:'#fff',border:'none',fontWeight:600,cursor:'pointer',fontSize:14}} onClick={()=>{setScanResult(null);onClose();}}>Selesai</button>
+                      <button style={{marginTop:18,padding:'10px 28px',borderRadius:6,background:'#27ae60',color:'#fff',border:'none',fontWeight:600,cursor:'pointer',fontSize:14,marginRight:8}} onClick={()=>{setScanResult(null);}}>Scan Lagi</button>
+                      <button style={{marginTop:18,padding:'10px 28px',borderRadius:6,background:'#666',color:'#fff',border:'none',fontWeight:600,cursor:'pointer',fontSize:14}} onClick={()=>{setScanResult(null);onClose();}}>Selesai</button>
                     </>
                   )}
                 </div>
