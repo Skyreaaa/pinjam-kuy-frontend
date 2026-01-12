@@ -323,20 +323,42 @@ router.post('/fines/verify', async (req,res)=>{
             await pool.query('UPDATE fine_payment_notifications SET status=$1 WHERE id=$2',['rejected', notificationId]);
         }
 
-        // === SOCKET.IO NOTIFIKASI USER ===
+        // === SOCKET.IO NOTIFIKASI USER + INSERT KE DB ===
         try {
             const io = req.app.get('io');
-            if (io && noti.user_id) {
+            if (noti.user_id) {
                 if (action === 'approve') {
-                    io.to(`user_${noti.user_id}`).emit('notification', {
-                        message: `Pembayaran denda sebesar Rp${noti.amount_total} telah diverifikasi dan dinyatakan lunas. Terima kasih!`,
+                    const message = `Pembayaran denda sebesar Rp${noti.amount_total} telah diverifikasi dan dinyatakan lunas. Terima kasih!`;
+                    // Insert ke user_notifications
+                    await UserNotification.create({
+                        user_id: noti.user_id,
                         type: 'success',
+                        message: message,
+                        is_broadcast: 0
                     });
+                    // Socket.IO
+                    if (io) {
+                        io.to(`user_${noti.user_id}`).emit('notification', {
+                            message: message,
+                            type: 'success',
+                        });
+                    }
                 } else if (action === 'reject') {
-                    io.to(`user_${noti.user_id}`).emit('notification', {
-                        message: `Pembayaran denda ditolak. Silakan upload ulang bukti pembayaran yang valid.`,
+                    const message = `Pembayaran denda ditolak. Silakan upload ulang bukti pembayaran yang valid.`;
+                    // Insert ke user_notifications
+                    await UserNotification.create({
+                        user_id: noti.user_id,
                         type: 'error',
+                        message: message,
+                        is_broadcast: 0
                     });
+                    // Socket.IO
+                    if (io) {
+                        io.to(`user_${noti.user_id}`).emit('notification', {
+                            message: message,
+                            type: 'error',
+                        });
+                    }
                 }
             }
         } catch (err) {

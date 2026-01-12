@@ -196,7 +196,19 @@ const AdminBroadcastPage: React.FC = () => {
         {result && <div style={{ marginTop: 16, color: result.includes('berhasil') ? '#2ecc71' : '#e74c3c', fontWeight:600 }}>{result}</div>}
       </form>
 
-      <h3 style={{marginBottom:12}}>Riwayat Broadcast</h3>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+        <h3 style={{margin:0}}>Riwayat Broadcast</h3>
+        {history.length > 0 && (
+          <button onClick={async()=>{
+            if(window.confirm('Hapus semua riwayat broadcast?')){
+              try {
+                await adminApiAxios.delete('/admin/broadcast/history');
+                await fetchHistory();
+              } catch(e) { alert('Gagal menghapus riwayat!'); }
+            }
+          }} style={{background:'#e74c3c',color:'#fff',border:'none',borderRadius:6,padding:'6px 14px',fontWeight:600,cursor:'pointer'}}>Hapus Semua</button>
+        )}
+      </div>
       <div style={{display:'flex',flexDirection:'column',gap:16}}>
         {loadingHistory && <div>Memuat riwayat...</div>}
         {!loadingHistory && history.length === 0 && (

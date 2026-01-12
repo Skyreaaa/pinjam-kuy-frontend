@@ -201,6 +201,14 @@ const DashboardState: React.FC = () => {
     }
   };
 
+  // Fungsi format singkat angka denda
+  function formatShortIDR(n: number) {
+    if (n >= 1_000_000_000) return (n/1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+    if (n >= 1_000_000) return (n/1_000_000).toFixed(1).replace(/\.0$/, '') + 'Jt';
+    if (n >= 1_000) return (n/1_000).toFixed(1).replace(/\.0$/, '') + 'K';
+    return n.toString();
+  }
+
   return (
     <div className="dashboard-state-page">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
@@ -214,7 +222,7 @@ const DashboardState: React.FC = () => {
         <DashboardCard title="Total Buku" value={stats.totalBooks} icon={<FaBook />} color="#1cc88a" />
         <DashboardCard title="Total Peminjaman" value={stats.totalLoans} icon={<FaExchangeAlt />} color="#36b9cc" />
         <DashboardCard title="Total Pengembalian" value={stats.totalReturns} icon={<FaUndo />} color="#f6c23e" />
-        <DashboardCard title="Total Denda" value={`Rp ${stats.totalFines?.toLocaleString('id-ID') || 0}`} icon={<FaMoneyBillWave />} color="#e74a3b" />
+        <DashboardCard title="Total Denda" value={`Rp ${formatShortIDR(Number(stats.totalFines)||0)}`} icon={<FaMoneyBillWave />} color="#e74a3b" />
       </div>
       <div className="charts-section" style={{ flexWrap: 'wrap', gap: 32 }}>
         <div className="chart-container">

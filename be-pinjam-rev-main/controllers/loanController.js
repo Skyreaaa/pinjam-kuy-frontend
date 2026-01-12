@@ -3,6 +3,7 @@
 const getDBPool = (req) => req.app.get('dbPool');
 const { format, addDays, isBefore, differenceInCalendarDays, startOfDay } = require('date-fns');
 const pushController = require('./pushController'); // Import push notifications
+const UserNotification = require('../models/user_notifications');
 // Batas maksimum hari peminjaman dihapus agar sepenuhnya mengikuti input user
 // (tetap bisa dipakai di tempat lain jika ingin logika tambahan)
 const MAX_LOAN_DAYS = Infinity;
@@ -622,7 +623,7 @@ exports.approveLoan = async (req, res) => {
             if (exist.length) return res.status(400).json({ message: `Pinjaman sudah diproses (Status: ${exist[0].status}).` });
             return res.status(404).json({ message: 'Pinjaman tidak ditemukan.' });
         }
-        // --- TRIGGER SOCKET.IO NOTIF KE USER ---
+        // --- TRIGGER SOCKET.IO NOTIF KE USER + INSERT KE DB ---
         try {
             const io = req.app.get('io');
             const userId = rows[0].user_id;
@@ -632,11 +633,22 @@ exports.approveLoan = async (req, res) => {
                 const [bookRows] = await pool.query('SELECT title FROM books WHERE id = $1', [rows[0].book_id]);
                 if (bookRows.length) bookTitle = bookRows[0].title;
             } catch {}
-            if (io && userId) {
-                io.to(`user_${userId}`).emit('notification', {
-                    message: `Pinjaman buku${bookTitle ? ' "' + bookTitle + '"' : ''} disetujui. QR siap digunakan.`,
+            if (userId) {
+                const message = `Pinjaman buku${bookTitle ? ' "' + bookTitle + '"' : ''} disetujui. QR siap digunakan.`;
+                // Insert ke user_notifications
+                await UserNotification.create({
+                    user_id: userId,
                     type: 'success',
+                    message: message,
+                    is_broadcast: 0
                 });
+                // Socket.IO
+                if (io) {
+                    io.to(`user_${userId}`).emit('notification', {
+                        message: message,
+                        type: 'success',
+                    });
+                }
             }
         } catch (err) {
             console.warn('[SOCKET.IO][NOTIF] Gagal kirim notif approveLoan:', err.message);
@@ -822,7 +834,7 @@ exports.rejectLoan = async (req, res) => {
 
         // Ambil info buku & user sebelum update status
         const loanInfoResult = await pool.query(`
-            SELECT l.book_id, b.title 
+            SELECT l.book_id, l.user_id, b.title 
             FROM loans l JOIN books b ON l.book_id = b.id 
             WHERE l.id = $1 AND l.status = 'Menunggu Persetujuan'`, [loanId]);
         const loanInfo = loanInfoResult.rows;
@@ -840,6 +852,32 @@ exports.rejectLoan = async (req, res) => {
         
         // 2. Tambah kembali stok buku
         await pool.query('UPDATE books SET availableStock = availableStock + 1 WHERE id = $1', [loanInfo[0].book_id]);
+
+        // 3. Kirim notifikasi ke user
+        try {
+            const io = req.app.get('io');
+            const userId = loanInfo[0].user_id;
+            const bookTitle = loanInfo[0].title;
+            if (userId) {
+                const message = `Permintaan pinjaman buku "${bookTitle}" ditolak oleh admin.`;
+                // Insert ke user_notifications
+                await UserNotification.create({
+                    user_id: userId,
+                    type: 'error',
+                    message: message,
+                    is_broadcast: 0
+                });
+                // Socket.IO
+                if (io) {
+                    io.to(`user_${userId}`).emit('notification', {
+                        message: message,
+                        type: 'error',
+                    });
+                }
+            }
+        } catch (err) {
+            console.warn('[SOCKET.IO][NOTIF] Gagal kirim notif rejectLoan:', err.message);
+        }
 
         // No commit
         res.json({ success: true, message: `Permintaan pinjaman buku "${loanInfo[0].title}" berhasil ditolak.` });

@@ -1,19 +1,17 @@
-// Web-push tidak digunakan lagi, diganti dengan Socket.IO real-time notifications
-// const webpush = require('web-push');
+const webpush = require('web-push');
 
 // VAPID keys configuration
 // Generate your own keys by running: npx web-push generate-vapid-keys
-// const vapidKeys = {
-//   publicKey: process.env.VAPID_PUBLIC_KEY || 'BGhFvr-14LSm6KqdJlcEZkBJ9DgPEjUoMG8i5cAbAw2wjnoOgqajf_8qUx0ibxd6hACUhySSoh-cxLPAUfY9Tfw',
-//   privateKey: process.env.VAPID_PRIVATE_KEY || 'mz2Wxkkg97Op5yYdDvXIhE6ET-ttnGVBjoqhERkpY4o'
-// };
+const vapidKeys = {
+  publicKey: process.env.VAPID_PUBLIC_KEY || 'BGhFvr-14LSm6KqdJlcEZkBJ9DgPEjUoMG8i5cAbAw2wjnoOgqajf_8qUx0ibxd6hACUhySSoh-cxLPAUfY9Tfw',
+  privateKey: process.env.VAPID_PRIVATE_KEY || 'mz2Wxkkg97Op5yYdDvXIhE6ET-ttnGVBjoqhERkpY4o'
+};
 
-// Configure web-push
-// webpush.setVapidDetails(
-//   'mailto:admin@pinjamkuy.com',
-//   vapidKeys.publicKey,
-//   vapidKeys.privateKey
-// );
+webpush.setVapidDetails(
+  'mailto:admin@pinjamkuy.com',
+  vapidKeys.publicKey,
+  vapidKeys.privateKey
+);
 
 // Store subscriptions in database
 // You can store this in MySQL push_subscriptions table
