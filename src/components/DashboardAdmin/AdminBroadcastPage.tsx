@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { FaBullhorn, FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaInfoCircle, FaPaperPlane } from 'react-icons/fa';
 import './AdminDashboard.css';
 import EmptyState from '../common/EmptyState';
-import { adminApi } from '../../services/api';
+import { adminApi, adminApiAxios } from '../../services/api';
 
 const typeMeta = {
   info: { color: '#3498db', icon: <FaInfoCircle /> },
@@ -202,7 +202,7 @@ const AdminBroadcastPage: React.FC = () => {
           <button onClick={async()=>{
             if(window.confirm('Hapus semua riwayat broadcast?')){
               try {
-                await adminApi.delete('/admin/broadcast/history');
+                await adminApiAxios.delete('/admin/broadcast/history');
                 await fetchHistory();
               } catch(e) { alert('Gagal menghapus riwayat!'); }
             }
