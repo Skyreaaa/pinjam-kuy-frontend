@@ -202,7 +202,7 @@ const AdminBroadcastPage: React.FC = () => {
           <button onClick={async()=>{
             if(window.confirm('Hapus semua riwayat broadcast?')){
               try {
-                await adminApiAxios.delete('/admin/broadcast/history');
+                await adminApi.delete('/admin/broadcast/history');
                 await fetchHistory();
               } catch(e) { alert('Gagal menghapus riwayat!'); }
             }
