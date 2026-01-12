@@ -171,8 +171,14 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({ onBack }) => 
 
         // --- User/broadcast notifications (FILTERED FOR SYSTEM NOTIFICATIONS ONLY) ---
         const userNotifItems: NotificationItem[] = (Array.isArray(userNotifRes) ? userNotifRes : (userNotifRes?.data || userNotifRes?.items || [])).filter((n: any) => {
-          // Only include system notifications, not fine payment related notifications
           const message = n.message || '';
+          
+          // Always include broadcast messages (is_broadcast = 1 or true)
+          if (n.is_broadcast === true || n.is_broadcast === 1) {
+            return true;
+          }
+          
+          // For non-broadcast, only include system notifications
           const isSystemNotification = (
             message.includes('QR Code') ||
             message.includes('siap diambil') ||
@@ -181,9 +187,7 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({ onBack }) => 
             message.includes('pembatalan') ||
             message.includes('Permintaan pinjam buku berhasil') ||
             message.includes('Buku siap diambil di perpustakaan') ||
-            message.includes('telah diambil dan siap dipinjam') ||
-            n.is_broadcast === true || // Include broadcast messages
-            n.type === 'broadcast'
+            message.includes('telah diambil dan siap dipinjam')
           );
           
           // Exclude fine payment related notifications - those belong in activity history
@@ -200,7 +204,7 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({ onBack }) => 
             id: n.id,
             bookTitle: n.message || 'Notifikasi System',
             status: n.type || 'info',
-            kind: n.is_broadcast ? 'broadcast' : 'user_notif',
+            kind: (n.is_broadcast === true || n.is_broadcast === 1) ? 'broadcast' : 'user_notif',
             timestamp: n.createdAt ? new Date(n.createdAt) : new Date(),
             message: n.message, // Full message for detail view
             type: n.type, // success, error, warning, info
