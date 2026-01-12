@@ -87,6 +87,11 @@ const NotificationHistory: React.FC<NotificationHistoryProps> = ({ onBack }) => 
           loanApi.userLoans(),
           userNotificationApi.list(),
         ]);
+        console.log('🔔 [NotificationHistory] API Responses:', {
+          loanNotifRes: loanNotifRes,
+          userNotifRes: userNotifRes,
+          userNotifResLength: Array.isArray(userNotifRes) ? userNotifRes.length : 'not array'
+        });
         if (!loanNotifRes.success) {
           setError((loanNotifRes as any as string) || 'Gagal mengambil riwayat notifikasi.');
         }
