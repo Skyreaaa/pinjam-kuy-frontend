@@ -46,15 +46,20 @@
 
 /* Header for Notification History Page */
 .header-v5 {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 20px 24px;
-    background: #fff;
-    border-bottom: 2px solid #f0f0f0;
     position: sticky;
     top: 0;
     z-index: 100;
+    background: #fff;
+    border-bottom: 2px solid #f0f0f0;
+    padding: 20px 24px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.header-v5 .back-button-v5 {
+    position: absolute;
+    left: 24px;
 }
 
 .header-title-v5 {
@@ -62,12 +67,16 @@
     font-weight: 700;
     color: #2c3e50;
     margin: 0;
-    flex: 1;
+    text-align: center;
 }
 
 @media (max-width: 767px) {
     .header-v5 {
         padding: 16px 20px;
+    }
+    
+    .header-v5 .back-button-v5 {
+        left: 20px;
     }
     
     .header-title-v5 {
